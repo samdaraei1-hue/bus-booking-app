@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { useRequireAdmin } from "@/lib/auth/requireAdmin";
 
 export default async function AdminLayout({
   children,
@@ -9,7 +9,7 @@ export default async function AdminLayout({
 }) {
   const { lang } = await params;
 
-  await requireAdmin(lang);
+  await useRequireAdmin(lang);
 
   return <>{children}</>;
 }
