@@ -16,7 +16,7 @@ type BookingRow = {
     destination: string;
     departure_at: string;
     return_at: string;
-  } | null;
+  }[];
 };
 
 export default function MyBookingsPage() {
@@ -115,7 +115,7 @@ export default function MyBookingsPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-zinc-900">
-                    {row.travels?.origin} → {row.travels?.destination}
+                     {row.travels?.[0]?.origin} → {row.travels?.[0]?.destination}
                   </h2>
                   <p className="mt-2 text-sm text-zinc-600">
                     {t("page.my_bookings.seat", "صندلی")}: {row.seat_no}
