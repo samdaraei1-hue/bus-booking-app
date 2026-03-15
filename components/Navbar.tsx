@@ -5,76 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
-
-type Viewer = {
-  id: string;
-  businessRole: string | null;
-  systemRole: string | null;
-} | null;
+import { useViewer } from "@/lib/auth/useViewer.client";
+import { refresh } from "next/cache";
 
 export default function Navbar({ lang }: { lang: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useT(lang);
-
-  const [viewer, setViewer] = useState<Viewer>(null);
-  const [loading, setLoading] = useState(true);
-
-  const loadViewer = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setViewer(null);
-      setLoading(false);
-      return;
-    }
-
-    const [{ data: userRow }, { data: roleRow }] = await Promise.all([
-      supabase.from("users").select("role").eq("id", user.id).single(),
-      supabase.from("user_roles").select("role").eq("user_id", user.id).single(),
-    ]);
-
-    setViewer({
-      id: user.id,
-      businessRole: userRow?.role ?? null,
-      systemRole: roleRow?.role ?? "user",
-    });
-
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      if (!mounted) return;
-      await loadViewer();
-    })();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async () => {
-      if (!mounted) return;
-      await loadViewer();
-      router.refresh();
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [router]);
-
-  const dashboardAllowed = useMemo(() => {
-    if (!viewer) return false;
-    return (
-      viewer.systemRole === "admin" ||
-      viewer.businessRole === "leader" ||
-      viewer.businessRole === "owner"
-    );
-  }, [viewer]);
+  const { viewer, loading, dashboardAllowed, reloadViewer } = useViewer();
 
   const switchLangHref = (to: string) => {
     const parts = pathname.split("/").filter(Boolean);
@@ -84,10 +22,9 @@ export default function Navbar({ lang }: { lang: string }) {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setViewer(null);
-    router.push(`/${lang}`);
-    router.refresh();
+    supabase.auth.signOut();
+    window.location.href = `/${lang}/login`;
+    refresh();  
   };
 
   return (
@@ -125,7 +62,7 @@ export default function Navbar({ lang }: { lang: string }) {
               <button
                 type="button"
                 onClick={logout}
-                className="font-medium text-zinc-700 transition hover:text-rose-600"
+                className="font-medium text-zinc-700 transition hover:text-rose-600 cursor-pointer"
               >
                 {t("common.logout", "خروج")}
               </button>

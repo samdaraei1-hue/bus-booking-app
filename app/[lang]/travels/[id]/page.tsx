@@ -26,28 +26,44 @@ export default function TravelDetailPage() {
       setLoading(true);
       setMsg(null);
 
-      const { data, error } = await supabase
-        .from("travels")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (!mounted) return;
-
-      if (error || !data) {
-        setTravel(null);
-        setMsg(error?.message ?? "Travel not found");
+      if (!id) {
+        setMsg("Missing travel id");
         setLoading(false);
         return;
       }
 
-      setTravel(data as Travel);
+      try {
+        const { data, error } = await supabase
+          .from("travels")
+          .select("*")
+          .eq("id", id)
+          .single();
 
-      const translated = await getTravelTranslations(id, lang);
+        if (!mounted) return;
 
-      if (!mounted) return;
-      setTravelI18n(translated);
-      setLoading(false);
+        if (error || !data) {
+          setTravel(null);
+          setMsg(error?.message ?? "Travel not found");
+          setLoading(false);
+          return;
+        }
+
+        setTravel(data as Travel);
+
+        const translated = await getTravelTranslations(id, lang);
+
+        if (!mounted) return;
+        setTravelI18n(translated);
+      } catch (err) {
+        if (!mounted) return;
+        setTravel(null);
+        setMsg(
+          err instanceof Error ? err.message : "An unexpected error occurred"
+        );
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
     })();
 
     return () => {

@@ -6,67 +6,14 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Travel } from "@/lib/types";
 import TravelCard from "@/components/travel/TravelCard";
 import { useT } from "@/lib/translations/useT.client";
-
-type Viewer = {
-  id: string;
-  businessRole: string | null;
-  systemRole: string | null;
-} | null;
+import { useViewer } from "@/lib/auth/useViewer.client";
 
 export default function HomeClient({ lang }: { lang: string }) {
   const router = useRouter();
   const t = useT(lang);
+  const { viewer, loading: authLoading, dashboardAllowed } = useViewer();
 
   const [travels, setTravels] = useState<Travel[]>([]);
-  const [viewer, setViewer] = useState<Viewer>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  const loadViewer = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setViewer(null);
-      setAuthLoading(false);
-      return;
-    }
-
-    const [{ data: userRow }, { data: roleRow }] = await Promise.all([
-      supabase.from("users").select("role").eq("id", user.id).single(),
-      supabase.from("user_roles").select("role").eq("user_id", user.id).single(),
-    ]);
-
-    setViewer({
-      id: user.id,
-      businessRole: userRow?.role ?? null,
-      systemRole: roleRow?.role ?? "user",
-    });
-
-    setAuthLoading(false);
-  };
-
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      if (!mounted) return;
-      await loadViewer();
-    })();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async () => {
-      if (!mounted) return;
-      await loadViewer();
-      router.refresh();
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [router]);
 
   useEffect(() => {
     let mounted = true;
@@ -74,7 +21,7 @@ export default function HomeClient({ lang }: { lang: string }) {
     (async () => {
       const { data } = await supabase
         .from("travels")
-        .select("id, name, origin, destination, departure_at, return_at, price, description")
+        .select("*")
         .order("departure_at", { ascending: true })
         .limit(3);
 
@@ -86,12 +33,6 @@ export default function HomeClient({ lang }: { lang: string }) {
       mounted = false;
     };
   }, []);
-
-  const dashboardAllowed =
-    viewer &&
-    (viewer.systemRole === "admin" ||
-      viewer.businessRole === "leader" ||
-      viewer.businessRole === "owner");
 
   return (
     <main className="space-y-24">
@@ -134,18 +75,23 @@ export default function HomeClient({ lang }: { lang: string }) {
               ) : null}
 
               {!authLoading && viewer ? (
-                <button
-                  onClick={() =>
-                    router.push(
-                      dashboardAllowed ? `/${lang}/dashboard` : `/${lang}/my-bookings`
-                    )
-                  }
-                  className="rounded-2xl border border-white/40 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur transition hover:bg-white/20"
-                >
-                  {dashboardAllowed
-                    ? t("navbar.dashboard", "داشبورد")
-                    : t("navbar.my_bookings", "رزروهای من")}
-                </button>
+                <>
+                  <button
+                    onClick={() => router.push(`/${lang}/my-bookings`)}
+                    className="rounded-2xl border border-white/40 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur transition hover:bg-white/20"
+                  >
+                    {t("navbar.my_bookings", "رزروهای من")}
+                  </button>
+
+                  {dashboardAllowed ? (
+                    <button
+                      onClick={() => router.push(`/${lang}/dashboard`)}
+                      className="rounded-2xl border border-white/40 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur transition hover:bg-white/20"
+                    >
+                      {t("navbar.dashboard", "داشبورد")}
+                    </button>
+                  ) : null}
+                </>
               ) : null}
             </div>
           </div>

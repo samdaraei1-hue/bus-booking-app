@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { Travel } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
+import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
 
 export default function TravelCard({
   travel,
@@ -13,6 +15,20 @@ export default function TravelCard({
   lang: string;
 }) {
   const t = useT(lang);
+  const [localizedTravel, setLocalizedTravel] = useState(travel);
+
+  useEffect(() => {
+    (async () => {
+      const translations = await getTravelTranslations(travel.id, lang);
+      setLocalizedTravel({
+        ...travel,
+        name: translations.name ?? travel.name,
+        origin: translations.origin ?? travel.origin,
+        destination: translations.destination ?? travel.destination,
+        description: translations.description ?? travel.description,
+      });
+    })();
+  }, [travel, lang]);
 
   return (
     <motion.div
@@ -27,7 +43,7 @@ export default function TravelCard({
         <div className="relative h-48 overflow-hidden">
           <img
             src="/images/travel.jpg"
-            alt={`${travel.origin} to ${travel.destination}`}
+            alt={`${localizedTravel.origin} to ${localizedTravel.destination}`}
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
@@ -36,18 +52,18 @@ export default function TravelCard({
               Group Trip
             </span>
             <span className="rounded-full bg-rose-600 px-3 py-1 text-sm font-bold">
-              €{travel.price}
+              €{localizedTravel.price}
             </span>
           </div>
         </div>
 
         <div className="space-y-3 p-5">
           <h3 className="text-xl font-bold text-zinc-900">
-            {travel.origin} → {travel.destination}
+            {localizedTravel.origin} → {localizedTravel.destination}
           </h3>
 
           <p className="text-sm text-zinc-500">
-            {new Date(travel.departure_at).toLocaleString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}
+            {new Date(localizedTravel.departure_at).toLocaleString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}
           </p>
 
           <div className="pt-2 text-sm font-semibold text-rose-600">

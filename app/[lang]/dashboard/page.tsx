@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -27,6 +28,8 @@ export default function DashboardPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
+      console.log("Dashboard User:", user);
+
       if (!mounted) return;
 
       if (!user) {
@@ -39,9 +42,17 @@ export default function DashboardPage() {
         supabase.from("user_roles").select("role").eq("user_id", user.id).single(),
       ]);
 
+      console.log("Dashboard UserRow:", userRow);
+      console.log("Dashboard RoleRow:", roleRow);
+
       if (!mounted) return;
 
       setViewer({
+        businessRole: userRow?.role ?? null,
+        systemRole: roleRow?.role ?? "user",
+      });
+
+      console.log("Dashboard Viewer set:", {
         businessRole: userRow?.role ?? null,
         systemRole: roleRow?.role ?? "user",
       });
@@ -55,11 +66,14 @@ export default function DashboardPage() {
   }, [lang, router]);
 
   const allowed = useMemo(() => {
+    const allowedRoles = ["admin", "leader", "owner", "driver"];
     if (!viewer) return false;
+
+    const systemRole = viewer.systemRole ?? "";
+    const businessRole = viewer.businessRole ?? "";
+
     return (
-      viewer.systemRole === "admin" ||
-      viewer.businessRole === "leader" ||
-      viewer.businessRole === "owner"
+      allowedRoles.includes(systemRole) || allowedRoles.includes(businessRole)
     );
   }, [viewer]);
 
@@ -72,7 +86,16 @@ export default function DashboardPage() {
   }
 
   if (!allowed) {
-    return null;
+    return (
+      <main className="mx-auto max-w-5xl px-6 py-12">
+        <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
+          <h1 className="text-2xl font-bold text-red-600">دسترسی غیرمجاز</h1>
+          <p className="mt-2 text-sm text-zinc-600">
+            شما اجازه دسترسی به این صفحه را ندارید.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
