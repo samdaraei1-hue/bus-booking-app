@@ -12,6 +12,10 @@ export type Viewer = {
 
 let viewerCache: Viewer | undefined;
 
+export function clearViewerCache() {
+  viewerCache = null;
+}
+
 export function useViewer() {
   const [viewer, setViewer] = useState<Viewer>(viewerCache ?? null);
   const [loading, setLoading] = useState(viewerCache === undefined);

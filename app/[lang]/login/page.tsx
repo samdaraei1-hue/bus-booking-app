@@ -1,29 +1,48 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 
 export default function LoginPage() {
   const router = useRouter();
   const params = useParams<{ lang: string }>();
+  const searchParams = useSearchParams();
   const lang = params.lang;
   const t = useT(lang);
+  const next = searchParams.get("next") || `/${lang}`;
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!mounted || !user) return;
+      router.replace(next);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [next, router]);
 
   const loginWithGoogle = async () => {
     try {
       setLoading(true);
       setMsg(null);
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/${lang}`,
+          redirectTo: `${window.location.origin}/${lang}/login?next=${encodeURIComponent(next)}`,
         },
       });
 
@@ -38,10 +57,10 @@ export default function LoginPage() {
       setLoading(true);
       setMsg(null);
 
-      const { error } = await supabase.auth.signInWithOtp({
+      await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/${lang}`,
+          emailRedirectTo: `${window.location.origin}/${lang}/login?next=${encodeURIComponent(next)}`,
         },
       });
 

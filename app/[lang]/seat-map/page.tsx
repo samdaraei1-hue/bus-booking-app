@@ -22,6 +22,8 @@ type SeatLockRow = {
   expires_at: string | null;
 };
 
+const PENDING_SELECTION_KEY = "pending-seat-selection";
+
 export default function SeatMapPage() {
   const router = useRouter();
   const routeParams = useParams<{ lang: string }>();
@@ -32,6 +34,7 @@ export default function SeatMapPage() {
   const travelId = sp.get("travel") ?? "";
   const reservationId = sp.get("reservation") ?? "";
   const isViewMode = sp.get("view") === "1";
+  const pendingSelectionParam = sp.get("selected") ?? "";
 
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
   const [viewSeatIds, setViewSeatIds] = useState<string[]>([]);
@@ -40,6 +43,7 @@ export default function SeatMapPage() {
   const [travelTitle, setTravelTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
+  const [gridSeed, setGridSeed] = useState("default");
 
   useEffect(() => {
     let mounted = true;
@@ -177,6 +181,60 @@ export default function SeatMapPage() {
     };
   }, [lang, reservationId, router, t, travelId]);
 
+  useEffect(() => {
+    if (isViewMode || !travelId) return;
+
+    const restorePendingSelection = () => {
+      const idsFromQuery = pendingSelectionParam
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      let ids = idsFromQuery;
+
+      if (!ids.length) {
+        try {
+          const raw = window.sessionStorage.getItem(PENDING_SELECTION_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw) as {
+              travelId?: string;
+              seatIds?: string[];
+            };
+            if (parsed.travelId === travelId && Array.isArray(parsed.seatIds)) {
+              ids = parsed.seatIds.filter(Boolean);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to restore pending seat selection", error);
+        }
+      }
+
+      if (ids.length) {
+        setSelectedSeatIds(ids);
+        setGridSeed(ids.join(","));
+      }
+    };
+
+    restorePendingSelection();
+  }, [isViewMode, pendingSelectionParam, travelId]);
+
+  useEffect(() => {
+    if (isViewMode || !travelId) return;
+
+    try {
+      if (selectedSeatIds.length) {
+        window.sessionStorage.setItem(
+          PENDING_SELECTION_KEY,
+          JSON.stringify({ travelId, seatIds: selectedSeatIds })
+        );
+      } else {
+        window.sessionStorage.removeItem(PENDING_SELECTION_KEY);
+      }
+    } catch (error) {
+      console.error("Failed to persist pending seat selection", error);
+    }
+  }, [isViewMode, selectedSeatIds, travelId]);
+
   const canContinue = !isViewMode && selectedSeatIds.length > 0 && !!travelId;
   const selectedSeatsLabel = useMemo(
     () =>
@@ -198,7 +256,10 @@ export default function SeatMapPage() {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      router.push(`/${lang}/login`);
+      const next = `/${lang}/seat-map?travel=${encodeURIComponent(
+        travelId
+      )}&selected=${encodeURIComponent(selectedSeatIds.join(","))}`;
+      router.push(`/${lang}/login?next=${encodeURIComponent(next)}`);
       return;
     }
 
@@ -231,6 +292,10 @@ export default function SeatMapPage() {
       await supabase.from("reservation_groups").delete().eq("id", groupRow.id);
       return;
     }
+
+    try {
+      window.sessionStorage.removeItem(PENDING_SELECTION_KEY);
+    } catch {}
 
     router.push(
       `/${lang}/reservation-details?reservation=${encodeURIComponent(groupRow.id)}`
@@ -279,9 +344,10 @@ export default function SeatMapPage() {
         </div>
 
         <SeatGrid
+          key={isViewMode ? `view-${reservationId}` : `edit-${gridSeed}`}
           seats={seats}
           unavailableSeatIds={unavailableSeatIds}
-          initialSelectedSeatIds={isViewMode ? viewSeatIds : []}
+          initialSelectedSeatIds={isViewMode ? viewSeatIds : selectedSeatIds}
           readOnly={isViewMode}
           onChange={setSelectedSeatIds}
         />

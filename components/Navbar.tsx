@@ -1,14 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
-import { useViewer } from "@/lib/auth/useViewer.client";
+import { clearViewerCache, useViewer } from "@/lib/auth/useViewer.client";
 
 export default function Navbar({ lang }: { lang: string }) {
   const pathname = usePathname();
   const t = useT(lang);
   const { viewer, loading, dashboardAllowed } = useViewer();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const switchLangHref = (to: string) => {
     const parts = pathname.split("/").filter(Boolean);
@@ -18,8 +20,14 @@ export default function Navbar({ lang }: { lang: string }) {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = `/${lang}/login`;
+    setLoggingOut(true);
+    clearViewerCache();
+
+    void supabase.auth.signOut().catch((error) => {
+      console.error("Failed to sign out cleanly", error);
+    });
+
+    window.location.replace(`/${lang}/login`);
   };
 
   return (
@@ -57,9 +65,12 @@ export default function Navbar({ lang }: { lang: string }) {
               <button
                 type="button"
                 onClick={logout}
+                disabled={loggingOut}
                 className="font-medium text-zinc-700 transition hover:text-rose-600 cursor-pointer"
               >
-                {t("common.logout", "خروج")}
+                {loggingOut
+                  ? t("common.loading", "Loading...")
+                  : t("common.logout", "خروج")}
               </button>
             </>
           ) : null}
