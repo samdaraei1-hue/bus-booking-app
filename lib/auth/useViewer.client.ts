@@ -29,12 +29,13 @@ export function useViewer() {
 
     try {
       const {
-        data: { user },
+        data: { session },
       } = await withTimeout(
-        supabase.auth.getUser(),
-        6000,
-        "Loading current user timed out"
+        supabase.auth.getSession(),
+        3000,
+        "Loading current session timed out"
       );
+      const user = session?.user ?? null;
 
       if (requestId !== requestIdRef.current) return;
 
@@ -53,7 +54,7 @@ export function useViewer() {
             .eq("user_id", user.id)
             .maybeSingle(),
         ]),
-        6000,
+        3000,
         "Loading user roles timed out"
       );
 

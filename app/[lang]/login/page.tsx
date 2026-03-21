@@ -22,8 +22,9 @@ export default function LoginPage() {
 
     (async () => {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user ?? null;
 
       if (!mounted || !user) return;
       router.replace(next);

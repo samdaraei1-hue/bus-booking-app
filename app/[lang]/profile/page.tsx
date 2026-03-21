@@ -36,8 +36,10 @@ export default function ProfilePage() {
       setMsg(null);
 
       try {
-        const { data } = await supabase.auth.getUser();
-        const user = data.user;
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const user = session?.user ?? null;
 
         if (!mounted) return;
 
@@ -90,8 +92,10 @@ export default function ProfilePage() {
   const save = async () => {
     setMsg(null);
 
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
 
     if (!user) {
       router.push(`/${lang}/login`);

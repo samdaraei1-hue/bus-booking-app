@@ -251,9 +251,10 @@ export default function SeatMapPage() {
     setMsg(null);
 
     const {
-      data: { user },
+      data: { session },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
 
     if (authError || !user) {
       const next = `/${lang}/seat-map?travel=${encodeURIComponent(
