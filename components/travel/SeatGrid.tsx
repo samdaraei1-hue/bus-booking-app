@@ -19,8 +19,9 @@ export default function SeatGrid({
   const [selected, setSelected] = useState<string[]>(initialSelectedSeatIds);
 
   useEffect(() => {
+    if (!readOnly) return;
     setSelected(initialSelectedSeatIds);
-  }, [initialSelectedSeatIds]);
+  }, [initialSelectedSeatIds, readOnly]);
 
   useEffect(() => {
     onChange(selected);

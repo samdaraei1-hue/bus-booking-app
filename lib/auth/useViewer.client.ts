@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { withTimeout } from "@/lib/async/withTimeout";
 
 export type Viewer = {
   id: string;
@@ -25,7 +26,11 @@ export function useViewer() {
     try {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await withTimeout(
+        supabase.auth.getUser(),
+        6000,
+        "Loading current user timed out"
+      );
 
       if (requestId !== requestIdRef.current) return;
 
@@ -35,14 +40,18 @@ export function useViewer() {
         return;
       }
 
-      const [{ data: userRow }, { data: roleRow }] = await Promise.all([
-        supabase.from("users").select("role").eq("id", user.id).maybeSingle(),
-        supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .maybeSingle(),
-      ]);
+      const [{ data: userRow }, { data: roleRow }] = await withTimeout(
+        Promise.all([
+          supabase.from("users").select("role").eq("id", user.id).maybeSingle(),
+          supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        ]),
+        6000,
+        "Loading user roles timed out"
+      );
 
       if (requestId !== requestIdRef.current) return;
 
@@ -55,7 +64,17 @@ export function useViewer() {
       setViewer(nextViewer);
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
-      console.error("Failed to load viewer", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to load viewer";
+
+      if (!message.toLowerCase().includes("timed out")) {
+        console.error("Failed to load viewer", error);
+      }
+
+      if (viewerCache === undefined) {
+        viewerCache = null;
+      }
+      setViewer(viewerCache ?? null);
     } finally {
       if (requestId !== requestIdRef.current) return;
       setLoading(false);
@@ -77,9 +96,38 @@ export function useViewer() {
       await loadViewer();
     });
 
+    let resumeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const handleResume = async () => {
+      if (!mounted || document.visibilityState === "hidden") return;
+      if (resumeTimer) clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => {
+        void loadViewer();
+      }, 250);
+    };
+
+    const handlePageShow = async () => {
+      if (!mounted) return;
+      if (resumeTimer) clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => {
+        void loadViewer();
+      }, 250);
+    };
+
+    const handleVisibilityChange = async () => {
+      if (!mounted || document.visibilityState === "hidden") return;
+      await loadViewer();
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+    document.addEventListener("visibilitychange", handleResume);
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      if (resumeTimer) clearTimeout(resumeTimer);
+      window.removeEventListener("pageshow", handlePageShow);
+      document.removeEventListener("visibilitychange", handleResume);
     };
   }, []);
 
