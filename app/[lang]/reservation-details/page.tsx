@@ -74,7 +74,7 @@ export default function ReservationDetailsPage() {
           rows.map((row) => ({
             id: row.id,
             layout_seat_id: row.layout_seat_id,
-            label: row.layout_seats?.[0]?.label ?? row.layout_seat_id,
+            label: row.layout_seats?.[0]?.label ?? "",
             passenger_name: row.passenger_name ?? "",
             passenger_email: row.passenger_email ?? "",
             passenger_phone: row.passenger_phone ?? "",
@@ -249,7 +249,8 @@ export default function ReservationDetailsPage() {
             className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200"
           >
             <h2 className="text-lg font-bold text-zinc-900">
-              {t("page.reservation_details.seat_prefix", "Seat")} {item.label}
+              {t("page.reservation_details.seat_number", "Seat Number")}{" "}
+              {item.label || "-"}
             </h2>
 
             <div className="mt-4 grid gap-4 md:grid-cols-3">

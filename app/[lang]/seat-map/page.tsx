@@ -331,7 +331,11 @@ export default function SeatMapPage() {
       </div>
 
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 text-center text-xs font-bold tracking-wide text-zinc-500">
+          {t("page.seat_map.bus_back", "Back of Bus")}
+        </div>
+
+        <div className="mb-4 flex items-center justify-between">
           <div className="text-sm font-semibold text-zinc-700">
             {t("page.seat_map.bus_map")}
           </div>
@@ -358,6 +362,10 @@ export default function SeatMapPage() {
             <span className="font-semibold"> {selectedSeatsLabel}</span>
           </div>
         ) : null}
+
+        <div className="mt-6 text-center text-xs font-bold tracking-wide text-zinc-500">
+          {t("page.seat_map.bus_front", "Front of Bus")}
+        </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
           <button
