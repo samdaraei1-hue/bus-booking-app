@@ -60,7 +60,7 @@ export default function SeatGrid({
     >
       {normalizedSeats.map((seat) => {
         const isUnavailable =
-          unavailableSeatIds.includes(seat.id) || !seat.is_selectable;
+          unavailableSeatIds.includes(seat.id) || seat.is_selectable === false;
         const isSelected = selected.includes(seat.id);
 
         return (
