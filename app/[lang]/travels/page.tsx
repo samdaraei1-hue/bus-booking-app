@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Travel } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
-import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
+import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
 import TravelCard from "@/components/travel/TravelCard";
 
 export default function TravelsPage() {
@@ -36,19 +36,21 @@ export default function TravelsPage() {
         }
 
         const rows = (data ?? []) as Travel[];
-
-        const localized = await Promise.all(
-          rows.map(async (travel: Travel) => {
-            const translated = await getTravelTranslations(travel.id, lang);
-            return {
-              ...travel,
-              name: translated.name ?? travel.name,
-              origin: translated.origin ?? travel.origin,
-              destination: translated.destination ?? travel.destination,
-              description: translated.description ?? travel.description,
-            };
-          })
+        const translations = await getTravelTranslationsMap(
+          rows.map((travel) => travel.id),
+          lang
         );
+
+        const localized = rows.map((travel: Travel) => {
+          const translated = translations[travel.id] ?? {};
+          return {
+            ...travel,
+            name: translated.name ?? travel.name,
+            origin: translated.origin ?? travel.origin,
+            destination: translated.destination ?? travel.destination,
+            description: translated.description ?? travel.description,
+          };
+        });
 
         if (!mounted) return;
         setLocalizedTravels(localized);

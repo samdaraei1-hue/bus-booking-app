@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
-import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
+import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
 
 type TravelRow = {
   id: string;
@@ -76,11 +76,9 @@ export default function DashboardReportsPage() {
       const seatRows = (seats ?? []) as SeatRow[];
       const reservationRows = (reservations ?? []) as ReservationRow[];
 
-      const translations: Record<string, Record<string, string>> = {};
-      await Promise.all(
-        travelRows.map(async (travel) => {
-          translations[travel.id] = await getTravelTranslations(travel.id, lang);
-        })
+      const translations = await getTravelTranslationsMap(
+        travelRows.map((travel) => travel.id),
+        lang
       );
 
       const capacityMap = new Map<string, number>();

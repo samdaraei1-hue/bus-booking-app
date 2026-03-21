@@ -7,6 +7,7 @@ import type { Travel } from "@/lib/types";
 import TravelCard from "@/components/travel/TravelCard";
 import { useT } from "@/lib/translations/useT.client";
 import { useViewer } from "@/lib/auth/useViewer.client";
+import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
 
 export default function HomeClient({ lang }: { lang: string }) {
   const t = useT(lang);
@@ -26,7 +27,25 @@ export default function HomeClient({ lang }: { lang: string }) {
           .limit(3);
 
         if (!mounted) return;
-        setTravels((data ?? []) as Travel[]);
+        const rows = (data ?? []) as Travel[];
+        const translations = await getTravelTranslationsMap(
+          rows.map((travel) => travel.id),
+          lang
+        );
+
+        if (!mounted) return;
+        setTravels(
+          rows.map((travel) => {
+            const translated = translations[travel.id] ?? {};
+            return {
+              ...travel,
+              name: translated.name ?? travel.name,
+              origin: translated.origin ?? travel.origin,
+              destination: translated.destination ?? travel.destination,
+              description: translated.description ?? travel.description,
+            };
+          })
+        );
       } catch (error) {
         if (!mounted) return;
         console.error("Failed to load home travels", error);
@@ -37,7 +56,7 @@ export default function HomeClient({ lang }: { lang: string }) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [lang]);
 
   return (
     <main className="space-y-24">

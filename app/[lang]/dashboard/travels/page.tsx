@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Travel } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
-import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
+import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
 
 export default function DashboardTravelsPage() {
   const params = useParams<{ lang: string }>();
@@ -36,11 +36,10 @@ export default function DashboardTravelsPage() {
       }
 
       setTravels(data || []);
-      const translations: Record<string, Record<string, string>> = {};
-      for (const travel of data || []) {
-        const translated = await getTravelTranslations(travel.id, lang);
-        translations[travel.id] = translated;
-      }
+      const translations = await getTravelTranslationsMap(
+        (data || []).map((travel) => travel.id),
+        lang
+      );
       setTravelTranslations(translations);
     } catch (error) {
       console.error(error);

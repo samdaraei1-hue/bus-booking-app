@@ -28,6 +28,20 @@ export default function ReservationDetailsPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  const getSeatLabel = (
+    layoutSeat:
+      | { label?: string | null; seat_key?: string | null }
+      | Array<{ label?: string | null; seat_key?: string | null }>
+      | null
+      | undefined
+  ) => {
+    if (Array.isArray(layoutSeat)) {
+      return layoutSeat[0]?.label || layoutSeat[0]?.seat_key || "";
+    }
+
+    return layoutSeat?.label || layoutSeat?.seat_key || "";
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -51,7 +65,7 @@ export default function ReservationDetailsPage() {
               passenger_name,
               passenger_email,
               passenger_phone,
-              layout_seats:layout_seat_id(label),
+              layout_seats:layout_seat_id(label, seat_key),
               reservation_groups:reservation_group_id(travel_id, status)
             `
           )
@@ -66,7 +80,9 @@ export default function ReservationDetailsPage() {
           passenger_name: string | null;
           passenger_email: string | null;
           passenger_phone: string | null;
-          layout_seats: Array<{ label: string }>;
+          layout_seats:
+            | { label?: string | null; seat_key?: string | null }
+            | Array<{ label?: string | null; seat_key?: string | null }>;
           reservation_groups: Array<{ travel_id: string; status: string }>;
         }>;
 
@@ -74,7 +90,7 @@ export default function ReservationDetailsPage() {
           rows.map((row) => ({
             id: row.id,
             layout_seat_id: row.layout_seat_id,
-            label: row.layout_seats?.[0]?.label ?? "",
+            label: getSeatLabel(row.layout_seats),
             passenger_name: row.passenger_name ?? "",
             passenger_email: row.passenger_email ?? "",
             passenger_phone: row.passenger_phone ?? "",
@@ -185,39 +201,17 @@ export default function ReservationDetailsPage() {
     }
   };
 
-  const releaseHoldAndGoBack = async () => {
-    setSaving(true);
-    setMsg(null);
-
-    try {
-      const { error: itemsDeleteError } = await supabase
-        .from("reservation_items")
-        .delete()
-        .eq("reservation_group_id", reservationId);
-
-      if (itemsDeleteError) throw itemsDeleteError;
-
-      const { error: groupDeleteError } = await supabase
-        .from("reservation_groups")
-        .delete()
-        .eq("id", reservationId);
-
-      if (groupDeleteError) throw groupDeleteError;
-
+  const goBackToSeatMap = () => {
+    if (!travelId) {
       router.back();
-    } catch (error) {
-      console.error(error);
-      setMsg(
-        error instanceof Error
-          ? error.message
-          : t(
-              "page.reservation_details.release_failed",
-              "Failed to release held seats"
-            )
-      );
-    } finally {
-      setSaving(false);
+      return;
     }
+
+    router.push(
+      `/${lang}/seat-map?travel=${encodeURIComponent(
+        travelId
+      )}&reservation=${encodeURIComponent(reservationId)}&view=1`
+    );
   };
 
   if (loading) {
@@ -295,13 +289,11 @@ export default function ReservationDetailsPage() {
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
-          onClick={() => void releaseHoldAndGoBack()}
+          onClick={goBackToSeatMap}
           disabled={saving}
           className="rounded-2xl bg-zinc-100 px-6 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
         >
-          {saving
-            ? t("page.reservation_details.releasing", "Releasing...")
-            : t("common.back", "Back")}
+          {t("common.back", "Back")}
         </button>
         <button
           type="button"

@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
 import { Travel } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
-import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
 
 export default function TravelCard({
   travel,
@@ -15,27 +13,8 @@ export default function TravelCard({
   lang: string;
 }) {
   const t = useT(lang);
-  const [localizedTravel, setLocalizedTravel] = useState(travel);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const translations = await getTravelTranslations(travel.id, lang);
-        setLocalizedTravel({
-          ...travel,
-          name: translations.name ?? travel.name,
-          origin: translations.origin ?? travel.origin,
-          destination: translations.destination ?? travel.destination,
-          description: translations.description ?? travel.description,
-        });
-      } catch (error) {
-        console.error("Failed to load travel card translations", error);
-        setLocalizedTravel(travel);
-      }
-    })();
-  }, [travel, lang]);
-
-  const imageSrc = localizedTravel.image_url || "/images/travel.jpg";
+  const localizedTravel = travel;
+  const imageSrc = travel.image_url || "/images/travel.jpg";
   const itemType =
     localizedTravel.type === "event"
       ? t("travel.type.event", "Event")
