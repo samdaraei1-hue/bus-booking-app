@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import type { Travel } from "@/lib/types";
 import TravelCard from "@/components/travel/TravelCard";
@@ -9,7 +9,6 @@ import { useT } from "@/lib/translations/useT.client";
 import { useViewer } from "@/lib/auth/useViewer.client";
 
 export default function HomeClient({ lang }: { lang: string }) {
-  const router = useRouter();
   const t = useT(lang);
   const { viewer, loading: authLoading, dashboardAllowed } = useViewer();
 
@@ -19,14 +18,20 @@ export default function HomeClient({ lang }: { lang: string }) {
     let mounted = true;
 
     (async () => {
-      const { data } = await supabase
-        .from("travels")
-        .select("*")
-        .order("departure_at", { ascending: true })
-        .limit(3);
+      try {
+        const { data } = await supabase
+          .from("travels")
+          .select("*")
+          .order("departure_at", { ascending: true })
+          .limit(3);
 
-      if (!mounted) return;
-      setTravels((data ?? []) as Travel[]);
+        if (!mounted) return;
+        setTravels((data ?? []) as Travel[]);
+      } catch (error) {
+        if (!mounted) return;
+        console.error("Failed to load home travels", error);
+        setTravels([]);
+      }
     })();
 
     return () => {
@@ -38,12 +43,12 @@ export default function HomeClient({ lang }: { lang: string }) {
     <main className="space-y-24">
       <section className="relative isolate overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center"
+          className="pointer-events-none absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/images/hero.jpg')" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/45 to-black/60" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/45 to-black/60" />
 
-        <div className="relative mx-auto flex min-h-[78vh] max-w-7xl items-center px-6 py-24 text-white">
+        <div className="relative z-10 mx-auto flex min-h-[78vh] max-w-7xl items-center px-6 py-24 text-white">
           <div className="max-w-3xl">
             <span className="mb-4 inline-block rounded-full bg-white/15 px-4 py-2 text-sm backdrop-blur">
               Energy Travel
@@ -58,38 +63,38 @@ export default function HomeClient({ lang }: { lang: string }) {
             </p>
 
             <div className="flex flex-wrap gap-4">
-              <button
-                onClick={() => router.push(`/${lang}/travels`)}
+              <Link
+                href={`/${lang}/travels`}
                 className="rounded-2xl bg-rose-600 px-8 py-4 font-bold text-white shadow-lg transition hover:scale-[1.02] hover:bg-rose-700"
               >
                 {t("page.home.hero.cta_primary")}
-              </button>
+              </Link>
 
               {!authLoading && !viewer ? (
-                <button
-                  onClick={() => router.push(`/${lang}/login`)}
+                <Link
+                  href={`/${lang}/login`}
                   className="rounded-2xl border border-white/40 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur transition hover:bg-white/20"
                 >
                   {t("page.home.hero.cta_secondary")}
-                </button>
+                </Link>
               ) : null}
 
               {!authLoading && viewer ? (
                 <>
-                  <button
-                    onClick={() => router.push(`/${lang}/my-bookings`)}
+                  <Link
+                    href={`/${lang}/my-bookings`}
                     className="rounded-2xl border border-white/40 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur transition hover:bg-white/20"
                   >
                     {t("navbar.my_bookings", "رزروهای من")}
-                  </button>
+                  </Link>
 
                   {dashboardAllowed ? (
-                    <button
-                      onClick={() => router.push(`/${lang}/dashboard`)}
+                    <Link
+                      href={`/${lang}/dashboard`}
                       className="rounded-2xl border border-white/40 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur transition hover:bg-white/20"
                     >
                       {t("navbar.dashboard", "داشبورد")}
-                    </button>
+                    </Link>
                   ) : null}
                 </>
               ) : null}
@@ -109,12 +114,12 @@ export default function HomeClient({ lang }: { lang: string }) {
             </p>
           </div>
 
-          <button
-            onClick={() => router.push(`/${lang}/travels`)}
+          <Link
+            href={`/${lang}/travels`}
             className="rounded-xl bg-zinc-900 px-5 py-3 text-white transition hover:bg-zinc-800"
           >
             {t("page.home.hero.cta_primary")}
-          </button>
+          </Link>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
@@ -133,16 +138,14 @@ export default function HomeClient({ lang }: { lang: string }) {
             {t("page.home.cta.subtitle")}
           </p>
 
-          <button
-            onClick={() =>
-              router.push(viewer ? `/${lang}/travels` : `/${lang}/login`)
-            }
+          <Link
+            href={viewer ? `/${lang}/travels` : `/${lang}/login`}
             className="rounded-2xl bg-rose-600 px-8 py-4 font-bold text-white transition hover:bg-rose-700"
           >
             {viewer
               ? t("page.home.cta.button")
               : t("page.home.hero.cta_secondary")}
-          </button>
+          </Link>
         </div>
       </section>
     </main>

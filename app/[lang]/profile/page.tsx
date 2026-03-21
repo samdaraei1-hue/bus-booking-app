@@ -35,38 +35,51 @@ export default function ProfilePage() {
       setLoading(true);
       setMsg(null);
 
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (!user) {
-        router.push(`/${lang}/login`);
-        return;
-      }
+        if (!user) {
+          router.push(`/${lang}/login`);
+          return;
+        }
 
-      setUserEmail(user.email ?? null);
+        setUserEmail(user.email ?? null);
 
-      const { data: p, error } = await supabase
-        .from("users")
-        .select("id, name, email, phone, role, profile_completed")
-        .eq("id", user.id)
-        .single();
+        const { data: p, error } = await supabase
+          .from("users")
+          .select("id, name, email, phone, role, profile_completed")
+          .eq("id", user.id)
+          .single();
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (error) {
-        setProfile(null);
-        setName("");
-        setPhone("");
-      } else {
+        if (error) {
+          setProfile(null);
+          setName("");
+          setPhone("");
+          setMsg(error.message);
+          return;
+        }
+
         const prof = (p as Profile) ?? null;
         setProfile(prof);
         setName(prof?.name ?? "");
         setPhone(prof?.phone ?? "");
+      } catch (error) {
+        if (!mounted) return;
+        setProfile(null);
+        setName("");
+        setPhone("");
+        setMsg(
+          error instanceof Error ? error.message : "Failed to load profile"
+        );
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
       }
-
-      setLoading(false);
     })();
 
     return () => {
@@ -103,7 +116,7 @@ export default function ProfilePage() {
       return;
     }
 
-    setProfile((prev) => ({
+    setProfile(() => ({
       id: user.id,
       name: payload.name,
       email: payload.email,

@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
+import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -12,17 +13,46 @@ export default function PaymentPage() {
   const t = useT(lang);
   const sp = useSearchParams();
 
+  const reservationId = sp.get("reservation") ?? "";
   const travelId = sp.get("travel") ?? "";
-  const seats = sp.get("seats") ?? "";
-
-  const seatList = useMemo(
-    () => seats.split(",").map((s) => Number(s.trim())).filter(Boolean),
-    [seats]
-  );
 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
+  const [travelTitle, setTravelTitle] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      if (!travelId) return;
+
+      const { data, error } = await supabase
+        .from("travels")
+        .select("id, name, origin, destination")
+        .eq("id", travelId)
+        .single();
+
+      if (!mounted || error || !data) return;
+
+      const translated = await getTravelTranslations(travelId, lang);
+      if (!mounted) return;
+
+      const translatedRoute = `${translated.origin ?? data.origin ?? ""} - ${
+        translated.destination ?? data.destination ?? ""
+      }`
+        .replace(/\s+-\s+$/, "")
+        .trim();
+
+      setTravelTitle(
+        translated.name ?? (translatedRoute || data.name || travelId)
+      );
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [lang, travelId]);
 
   const handlePayment = async () => {
     setLoading(true);
@@ -38,54 +68,36 @@ export default function PaymentPage() {
       return;
     }
 
-    const { data: userRow, error: userError } = await supabase
-      .from("users")
-      .select("id, name, email, phone")
-      .eq("id", user.id)
-      .single();
-
-    if (userError || !userRow) {
-      setMsg("اطلاعات کاربر پیدا نشد.");
+    if (!reservationId) {
+      setMsg(t("page.payment.reservation_not_found", "Reservation not found."));
       setLoading(false);
       return;
     }
 
-    const { data: existingRows, error: checkError } = await supabase
-      .from("bus_seats_reservation")
-      .select("seat_no, status")
-      .eq("travel_id", travelId)
-      .in("seat_no", seatList)
-      .in("status", ["pre", "paid", "Pre-Reservation", "Paid"]);
+    const { error: itemsError } = await supabase
+      .from("reservation_items")
+      .update({ status: "paid" })
+      .eq("reservation_group_id", reservationId);
 
-    if (checkError) {
-      setMsg(checkError.message);
+    if (itemsError) {
+      setMsg(itemsError.message);
       setLoading(false);
       return;
     }
 
-    if ((existingRows ?? []).length > 0) {
-      setMsg(t("page.payment.seat_unavailable"));
-      setLoading(false);
-      return;
-    }
+    const { error: groupError } = await supabase
+      .from("reservation_groups")
+      .update({
+        status: "paid",
+        payment_provider: "paypal_sandbox",
+        payment_ref: crypto.randomUUID(),
+        paid_at: new Date().toISOString(),
+      })
+      .eq("id", reservationId)
+      .eq("booker_user_id", user.id);
 
-    const insertRows = seatList.map((seatNo) => ({
-      travel_id: travelId,
-      leader_id: null,
-      seat_no: seatNo,
-      passenger_name: userRow.name ?? "مسافر",
-      passenger_email: userRow.email ?? user.email ?? null,
-      passenger_phone: userRow.phone ?? null,
-      booker_user_id: user.id,
-      status: "paid",
-    }));
-
-    const { error: insertError } = await supabase
-      .from("bus_seats_reservation")
-      .insert(insertRows);
-
-    if (insertError) {
-      setMsg(insertError.message);
+    if (groupError) {
+      setMsg(groupError.message);
       setLoading(false);
       return;
     }
@@ -104,11 +116,16 @@ export default function PaymentPage() {
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
         <div className="rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700">
           <div>
-            <span className="font-semibold">Travel:</span> {travelId || "-"}
+            <span className="font-semibold">
+              {t("page.payment.travel_label", "Travel")}:
+            </span>{" "}
+            {travelTitle || "-"}
           </div>
           <div className="mt-1">
-            <span className="font-semibold">Seats:</span>{" "}
-            {seatList.length ? seatList.join(", ") : "-"}
+            <span className="font-semibold">
+              {t("page.payment.reservation_label", "Reservation")}:
+            </span>{" "}
+            {reservationId || "-"}
           </div>
         </div>
 
@@ -127,8 +144,8 @@ export default function PaymentPage() {
         ) : (
           <div className="mt-6 flex gap-3">
             <button
-              onClick={handlePayment}
-              disabled={loading || !travelId || seatList.length === 0}
+              onClick={() => void handlePayment()}
+              disabled={loading || !travelId || !reservationId}
               className="rounded-2xl bg-rose-600 px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
             >
               {loading ? t("page.payment.processing") : t("page.payment.pay_sandbox")}

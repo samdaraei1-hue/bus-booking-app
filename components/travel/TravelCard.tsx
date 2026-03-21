@@ -19,16 +19,31 @@ export default function TravelCard({
 
   useEffect(() => {
     (async () => {
-      const translations = await getTravelTranslations(travel.id, lang);
-      setLocalizedTravel({
-        ...travel,
-        name: translations.name ?? travel.name,
-        origin: translations.origin ?? travel.origin,
-        destination: translations.destination ?? travel.destination,
-        description: translations.description ?? travel.description,
-      });
+      try {
+        const translations = await getTravelTranslations(travel.id, lang);
+        setLocalizedTravel({
+          ...travel,
+          name: translations.name ?? travel.name,
+          origin: translations.origin ?? travel.origin,
+          destination: translations.destination ?? travel.destination,
+          description: translations.description ?? travel.description,
+        });
+      } catch (error) {
+        console.error("Failed to load travel card translations", error);
+        setLocalizedTravel(travel);
+      }
     })();
   }, [travel, lang]);
+
+  const imageSrc = localizedTravel.image_url || "/images/travel.jpg";
+  const itemType =
+    localizedTravel.type === "event"
+      ? t("travel.type.event", "Event")
+      : t("travel.type.travel", "Travel");
+  const routeText =
+    localizedTravel.type === "event"
+      ? localizedTravel.origin
+      : `${localizedTravel.origin} → ${localizedTravel.destination}`;
 
   return (
     <motion.div
@@ -42,14 +57,14 @@ export default function TravelCard({
       >
         <div className="relative h-48 overflow-hidden">
           <img
-            src="/images/travel.jpg"
+            src={imageSrc}
             alt={`${localizedTravel.origin} to ${localizedTravel.destination}`}
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
           <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
             <span className="rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
-              Group Trip
+              {itemType}
             </span>
             <span className="rounded-full bg-rose-600 px-3 py-1 text-sm font-bold">
               €{localizedTravel.price}
@@ -59,8 +74,12 @@ export default function TravelCard({
 
         <div className="space-y-3 p-5">
           <h3 className="text-xl font-bold text-zinc-900">
-            {localizedTravel.origin} → {localizedTravel.destination}
+            {localizedTravel.name}
           </h3>
+
+          <p className="text-sm text-zinc-600">
+            {routeText}
+          </p>
 
           <p className="text-sm text-zinc-500">
             {new Date(localizedTravel.departure_at).toLocaleString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}

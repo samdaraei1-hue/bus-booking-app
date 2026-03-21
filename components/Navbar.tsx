@@ -1,18 +1,14 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 import { useViewer } from "@/lib/auth/useViewer.client";
-import { refresh } from "next/cache";
 
 export default function Navbar({ lang }: { lang: string }) {
   const pathname = usePathname();
-  const router = useRouter();
   const t = useT(lang);
-  const { viewer, loading, dashboardAllowed, reloadViewer } = useViewer();
+  const { viewer, loading, dashboardAllowed } = useViewer();
 
   const switchLangHref = (to: string) => {
     const parts = pathname.split("/").filter(Boolean);
@@ -22,41 +18,40 @@ export default function Navbar({ lang }: { lang: string }) {
   };
 
   const logout = async () => {
-    supabase.auth.signOut();
+    await supabase.auth.signOut();
     window.location.href = `/${lang}/login`;
-    refresh();  
   };
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/20 bg-white/70 backdrop-blur-xl shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link
+        <a
           href={`/${lang}`}
           className="flex items-center gap-3 text-2xl font-extrabold text-rose-600"
         >
           <img src="/logo.png" alt="Energy Travel" className="h-10 w-10 object-contain" />
           <span>{t("navbar.brand", "Energy Travel")}</span>
-        </Link>
+        </a>
 
         <nav className="hidden items-center gap-6 md:flex">
-          <Link href={`/${lang}/travels`} className="font-medium text-zinc-700 transition hover:text-rose-600">
-            {t("navbar.travels", "سفرها")}
-          </Link>
+          <a href={`/${lang}/travels`} className="font-medium text-zinc-700 transition hover:text-rose-600">
+            {t("navbar.travels", "Trips / Programs")}
+          </a>
 
           {!loading && viewer ? (
             <>
-              <Link href={`/${lang}/my-bookings`} className="font-medium text-zinc-700 transition hover:text-rose-600">
+              <a href={`/${lang}/my-bookings`} className="font-medium text-zinc-700 transition hover:text-rose-600">
                 {t("navbar.my_bookings", "رزروهای من")}
-              </Link>
+              </a>
 
-              <Link href={`/${lang}/profile`} className="font-medium text-zinc-700 transition hover:text-rose-600">
+              <a href={`/${lang}/profile`} className="font-medium text-zinc-700 transition hover:text-rose-600">
                 {t("navbar.profile", "پروفایل")}
-              </Link>
+              </a>
 
               {dashboardAllowed ? (
-                <Link href={`/${lang}/dashboard`} className="font-medium text-zinc-700 transition hover:text-rose-600">
+                <a href={`/${lang}/dashboard`} className="font-medium text-zinc-700 transition hover:text-rose-600">
                   {t("navbar.dashboard", "داشبورد")}
-                </Link>
+                </a>
               ) : null}
 
               <button
@@ -70,15 +65,15 @@ export default function Navbar({ lang }: { lang: string }) {
           ) : null}
 
           {!loading && !viewer ? (
-            <Link href={`/${lang}/login`} className="font-medium text-zinc-700 transition hover:text-rose-600">
+            <a href={`/${lang}/login`} className="font-medium text-zinc-700 transition hover:text-rose-600">
               {t("navbar.login", "ورود")}
-            </Link>
+            </a>
           ) : null}
         </nav>
 
         <div className="flex items-center gap-2">
           {["fa", "en", "de"].map((code) => (
-            <Link
+            <a
               key={code}
               href={switchLangHref(code)}
               className={[
@@ -89,7 +84,7 @@ export default function Navbar({ lang }: { lang: string }) {
               ].join(" ")}
             >
               {code.toUpperCase()}
-            </Link>
+            </a>
           ))}
         </div>
       </div>

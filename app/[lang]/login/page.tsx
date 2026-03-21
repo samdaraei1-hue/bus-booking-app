@@ -16,35 +16,39 @@ export default function LoginPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const loginWithGoogle = async () => {
-    setLoading(true);
-    setMsg(null);
+    try {
+      setLoading(true);
+      setMsg(null);
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/${lang}`,
-      },
-    });
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/${lang}`,
+        },
+      });
 
-    if (error) setMsg(error.message);
-    setLoading(false);
+    } catch (err) {
+      setMsg("An unexpected error occurred.");
+      setLoading(false);
+    }
   };
 
   const sendMagicLink = async () => {
-    setLoading(true);
-    setMsg(null);
+    try {
+      setLoading(true);
+      setMsg(null);
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/${lang}`,
-      },
-    });
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/${lang}`,
+        },
+      });
 
-    if (error) setMsg(error.message);
-    else setMsg("لینک ورود به ایمیل شما ارسال شد.");
-
-    setLoading(false);
+    } catch (err) {
+      setMsg("لینک ورود به ایمیل شما ارسال شد.");
+      setLoading(false);
+    }
   };
 
   return (

@@ -5,6 +5,22 @@ import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import SeatGrid from "@/components/travel/SeatGrid";
 import { useT } from "@/lib/translations/useT.client";
+import type { LayoutSeat, Travel } from "@/lib/types";
+import { isReservationActive } from "@/lib/reservations";
+import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
+
+type ReservationItemRow = {
+  layout_seat_id: string;
+  reservation_groups: {
+    status: string;
+    expires_at: string | null;
+  } | null;
+};
+
+type SeatLockRow = {
+  layout_seat_id: string;
+  expires_at: string | null;
+};
 
 export default function SeatMapPage() {
   const router = useRouter();
@@ -14,10 +30,14 @@ export default function SeatMapPage() {
 
   const sp = useSearchParams();
   const travelId = sp.get("travel") ?? "";
+  const reservationId = sp.get("reservation") ?? "";
+  const isViewMode = sp.get("view") === "1";
 
-  const [selected, setSelected] = useState<number[]>([]);
-  const [reserved, setReserved] = useState<number[]>([]);
-  const [totalSeats, setTotalSeats] = useState(40);
+  const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
+  const [viewSeatIds, setViewSeatIds] = useState<string[]>([]);
+  const [seats, setSeats] = useState<LayoutSeat[]>([]);
+  const [unavailableSeatIds, setUnavailableSeatIds] = useState<string[]>([]);
+  const [travelTitle, setTravelTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -33,46 +53,200 @@ export default function SeatMapPage() {
       setLoading(true);
       setMsg(null);
 
-      const { data: seatRows, error: seatsError } = await supabase
-        .from("travel_bus_seats")
-        .select("seat_no")
-        .eq("travel_id", travelId)
-        .order("seat_no", { ascending: true });
+      try {
+        const [
+          { data: travelRow, error: travelError },
+          { data: authData, error: authError },
+        ] = await Promise.all([
+          supabase
+            .from("travels")
+            .select("id, name, origin, destination, layout_id")
+            .eq("id", travelId)
+            .single(),
+          supabase.auth.getUser(),
+        ]);
 
-      const { data: reservationRows, error: reservationsError } = await supabase
-        .from("bus_seats_reservation")
-        .select("seat_no, status")
-        .eq("travel_id", travelId)
-        .in("status", ["pre", "paid", "Pre-Reservation", "Paid"]);
+        if (!mounted) return;
 
-      if (!mounted) return;
-
-      if (seatsError) {
-        setMsg(seatsError.message);
-      } else {
-        const seatNumbers = (seatRows ?? []).map((s) => s.seat_no);
-        if (seatNumbers.length > 0) {
-          setTotalSeats(Math.max(...seatNumbers));
+        if (authError || !authData.user) {
+          router.push(`/${lang}/login`);
+          return;
         }
-      }
 
-      if (reservationsError) {
-        setMsg(reservationsError.message);
-      } else {
-        const reservedSeats = (reservationRows ?? []).map((r) => r.seat_no);
-        setReserved(reservedSeats);
-      }
+        if (travelError) {
+          setMsg(travelError.message);
+          return;
+        }
 
-      setLoading(false);
+        const travel = travelRow as Pick<
+          Travel,
+          "id" | "name" | "origin" | "destination" | "layout_id"
+        >;
+        if (!travel.layout_id) {
+          setMsg(
+            t(
+              "page.seat_map.no_layout",
+              "No seat layout is assigned to this travel yet."
+            )
+          );
+          return;
+        }
+
+        const translated = await getTravelTranslations(travel.id, lang);
+        if (!mounted) return;
+        const translatedRoute = `${translated.origin ?? travel.origin ?? ""} - ${
+          translated.destination ?? travel.destination ?? ""
+        }`
+          .replace(/\s+-\s+$/, "")
+          .trim();
+        setTravelTitle(
+          translated.name ?? (translatedRoute || travel.name || travel.id)
+        );
+
+        const [
+          { data: seatRows, error: seatsError },
+          { data: reservationRows, error: reservationsError },
+          { data: lockRows, error: locksError },
+          { data: selectedReservationRows, error: selectedReservationError },
+        ] = await Promise.all([
+          supabase
+            .from("layout_seats")
+            .select(
+              "id, layout_id, seat_key, label, x, y, width, height, shape, seat_type, is_selectable"
+            )
+            .eq("layout_id", travel.layout_id),
+          supabase
+            .from("reservation_items")
+            .select(
+              "layout_seat_id, reservation_groups:reservation_group_id(status, expires_at)"
+            )
+            .eq("reservation_groups.travel_id", travelId),
+          supabase
+            .from("seat_locks")
+            .select("layout_seat_id, expires_at")
+            .eq("travel_id", travelId),
+          reservationId
+            ? supabase
+                .from("reservation_items")
+                .select("layout_seat_id")
+                .eq("reservation_group_id", reservationId)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+
+        if (!mounted) return;
+
+        if (seatsError) {
+          setMsg(seatsError.message);
+          return;
+        }
+
+        setSeats((seatRows ?? []) as LayoutSeat[]);
+
+        const blockedSeatIds = new Set<string>();
+
+        if (!reservationsError) {
+          ((reservationRows ?? []) as unknown as ReservationItemRow[]).forEach(
+            (row) => {
+              const group = row.reservation_groups;
+              if (group && isReservationActive(group.status, group.expires_at)) {
+                blockedSeatIds.add(row.layout_seat_id);
+              }
+            }
+          );
+        }
+
+        if (!locksError) {
+          ((lockRows ?? []) as SeatLockRow[]).forEach((row) => {
+            if (!row.expires_at || new Date(row.expires_at).getTime() > Date.now()) {
+              blockedSeatIds.add(row.layout_seat_id);
+            }
+          });
+        }
+
+        if (!selectedReservationError) {
+          const selectedIds = (selectedReservationRows ?? []).map(
+            (row) => row.layout_seat_id as string
+          );
+          setViewSeatIds(selectedIds);
+          selectedIds.forEach((seatId) => blockedSeatIds.delete(seatId));
+        }
+
+        setUnavailableSeatIds(Array.from(blockedSeatIds));
+      } catch (error) {
+        if (!mounted) return;
+        setMsg(
+          error instanceof Error ? error.message : "Failed to load seat map"
+        );
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
     })();
 
     return () => {
       mounted = false;
     };
-  }, [travelId]);
+  }, [lang, reservationId, router, t, travelId]);
 
-  const canContinue = selected.length > 0 && !!travelId;
-  const selectedSeatsLabel = useMemo(() => selected.join(","), [selected]);
+  const canContinue = !isViewMode && selectedSeatIds.length > 0 && !!travelId;
+  const selectedSeatsLabel = useMemo(
+    () =>
+      seats
+        .filter((seat) =>
+          (isViewMode ? viewSeatIds : selectedSeatIds).includes(seat.id)
+        )
+        .map((seat) => seat.label)
+        .join(", "),
+    [isViewMode, seats, selectedSeatIds, viewSeatIds]
+  );
+
+  const createHeldReservation = async () => {
+    setMsg(null);
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      router.push(`/${lang}/login`);
+      return;
+    }
+
+    const { data: groupRow, error: groupError } = await supabase
+      .from("reservation_groups")
+      .insert({
+        travel_id: travelId,
+        booker_user_id: user.id,
+        status: "held",
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (groupError || !groupRow) {
+      setMsg(groupError?.message ?? "Failed to create reservation hold");
+      return;
+    }
+
+    const { error: itemsError } = await supabase.from("reservation_items").insert(
+      selectedSeatIds.map((seatId) => ({
+        reservation_group_id: groupRow.id,
+        layout_seat_id: seatId,
+        status: "held",
+      }))
+    );
+
+    if (itemsError) {
+      setMsg(itemsError.message);
+      await supabase.from("reservation_groups").delete().eq("id", groupRow.id);
+      return;
+    }
+
+    router.push(
+      `/${lang}/reservation-details?reservation=${encodeURIComponent(groupRow.id)}`
+    );
+  };
 
   if (loading) {
     return (
@@ -88,9 +262,17 @@ export default function SeatMapPage() {
         <h1 className="text-3xl font-extrabold">{t("page.seat_map.title")}</h1>
         <p className="mt-2 text-sm text-zinc-600">
           {travelId
-            ? `${t("page.seat_map.subtitle_with_travel")} ${travelId}`
+            ? `${t("page.seat_map.subtitle_with_travel")} ${travelTitle || travelId}`
             : t("page.seat_map.subtitle_without_travel")}
         </p>
+        {isViewMode ? (
+          <p className="mt-2 text-sm text-sky-700">
+            {t(
+              "page.seat_map.view_mode",
+              "This map is shown in read-only mode for your reservation."
+            )}
+          </p>
+        ) : null}
         {msg ? <p className="mt-2 text-sm text-rose-600">{msg}</p> : null}
       </div>
 
@@ -101,11 +283,24 @@ export default function SeatMapPage() {
           </div>
           <div className="text-sm text-zinc-600">
             {t("page.seat_map.selected_count")}:{" "}
-            <span className="font-bold">{selected.length}</span>
+            <span className="font-bold">{selectedSeatIds.length}</span>
           </div>
         </div>
 
-        <SeatGrid total={totalSeats} reserved={reserved} onChange={setSelected} />
+        <SeatGrid
+          seats={seats}
+          unavailableSeatIds={unavailableSeatIds}
+          initialSelectedSeatIds={isViewMode ? viewSeatIds : []}
+          readOnly={isViewMode}
+          onChange={setSelectedSeatIds}
+        />
+
+        {selectedSeatsLabel ? (
+          <div className="mt-4 text-sm text-zinc-600">
+            {t("page.seat_map.selected_label", "Selected")}:
+            <span className="font-semibold"> {selectedSeatsLabel}</span>
+          </div>
+        ) : null}
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
           <button
@@ -116,25 +311,21 @@ export default function SeatMapPage() {
             {t("common.back")}
           </button>
 
-          <button
-            type="button"
-            disabled={!canContinue}
-            onClick={() =>
-              router.push(
-                `/${lang}/payment?travel=${encodeURIComponent(
-                  travelId
-                )}&seats=${encodeURIComponent(selectedSeatsLabel)}`
-              )
-            }
-            className={
-              "rounded-2xl px-6 py-3 text-sm font-bold text-white shadow-lg transition " +
-              (canContinue
-                ? "bg-rose-600 hover:bg-rose-700"
-                : "cursor-not-allowed bg-zinc-300")
-            }
-          >
-            {t("page.seat_map.continue_payment")}
-          </button>
+          {!isViewMode ? (
+            <button
+              type="button"
+              disabled={!canContinue}
+              onClick={() => void createHeldReservation()}
+              className={
+                "rounded-2xl px-6 py-3 text-sm font-bold text-white shadow-lg transition " +
+                (canContinue
+                  ? "bg-rose-600 hover:bg-rose-700"
+                  : "cursor-not-allowed bg-zinc-300")
+              }
+            >
+              {t("page.seat_map.continue_payment")}
+            </button>
+          ) : null}
         </div>
       </div>
     </main>

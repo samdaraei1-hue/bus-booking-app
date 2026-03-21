@@ -23,27 +23,24 @@ export default function DashboardPage() {
   useEffect(() => {
     let mounted = true;
 
-    (async () => {
+  (async () => {
+    try {
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
-      console.log("Dashboard User:", user);
-
       if (!mounted) return;
 
       if (!user) {
-        router.push(`/${lang}/login`);
+        router.replace(`/${lang}/login`);
         return;
       }
 
       const [{ data: userRow }, { data: roleRow }] = await Promise.all([
-        supabase.from("users").select("role").eq("id", user.id).single(),
-        supabase.from("user_roles").select("role").eq("user_id", user.id).single(),
+        supabase.from("users").select("role").eq("id", user.id).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
       ]);
-
-      console.log("Dashboard UserRow:", userRow);
-      console.log("Dashboard RoleRow:", roleRow);
 
       if (!mounted) return;
 
@@ -52,13 +49,12 @@ export default function DashboardPage() {
         systemRole: roleRow?.role ?? "user",
       });
 
-      console.log("Dashboard Viewer set:", {
-        businessRole: userRow?.role ?? null,
-        systemRole: roleRow?.role ?? "user",
-      });
-
-      setLoading(false);
-    })();
+    } catch (err) {
+      console.error("Dashboard error:", err);
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  })();
 
     return () => {
       mounted = false;

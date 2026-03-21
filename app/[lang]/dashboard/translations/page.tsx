@@ -12,6 +12,10 @@ const LANGS = [
   { code: "de", label: "Deutsch" },
 ] as const;
 
+type TranslationRow = Translation & {
+  entity_id?: string | null;
+};
+
 export default function DashboardTranslationsPage() {
   const params = useParams<{ lang: string }>();
   const lang = params.lang;
@@ -19,210 +23,264 @@ export default function DashboardTranslationsPage() {
 
   const [langFilter, setLangFilter] = useState<string>(lang);
   const [search, setSearch] = useState("");
-  const [items, setItems] = useState<Translation[]>([]);
+  const [items, setItems] = useState<TranslationRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [namespaceInput, setNamespaceInput] = useState("");
   const [keyInput, setKeyInput] = useState("");
+  const [entityIdInput, setEntityIdInput] = useState("");
   const [valueInput, setValueInput] = useState("");
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editNamespace, setEditNamespace] = useState<string | null>(null);
+  const [editEntityId, setEditEntityId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    void load();
+  }, [langFilter]);
 
   const load = async () => {
     setLoading(true);
     setMsg(null);
 
-    let q = supabase
-      .from("translations")
-      .select("namespace, key, lang, value")
-      .eq("lang", langFilter);
+    try {
+      const { data, error } = await supabase
+        .from("translations")
+        .select("namespace, key, lang, value, entity_id")
+        .eq("lang", langFilter)
+        .order("namespace", { ascending: true })
+        .order("key", { ascending: true });
 
-    const { data, error } = await q.order("namespace", { ascending: true }).order("key", { ascending: true });
-
-    if (error) {
+      if (error) throw error;
+      setItems((data ?? []) as TranslationRow[]);
+    } catch (error) {
+      console.error(error);
       setItems([]);
-      setMsg(error.message);
-    } else {
-      setItems((data ?? []) as Translation[]);
+      setMsg(error instanceof Error ? error.message : "Failed to load translations");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
-  useEffect(() => {
-    load();
-  }, [langFilter]);
-
   const filtered = useMemo(() => {
-    const s = search.trim().toLowerCase();
-    if (!s) return items;
-    return items.filter(
-      (i) =>
-        i.namespace.toLowerCase().includes(s) ||
-        i.key.toLowerCase().includes(s) ||
-        i.value.toLowerCase().includes(s)
+    const needle = search.trim().toLowerCase();
+    if (!needle) return items;
+
+    return items.filter((item) =>
+      [item.namespace, item.key, item.value, item.entity_id]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(needle))
     );
   }, [items, search]);
 
   const resetForm = () => {
     setNamespaceInput("");
     setKeyInput("");
+    setEntityIdInput("");
     setValueInput("");
     setEditKey(null);
     setEditNamespace(null);
+    setEditEntityId(null);
   };
 
   const upsert = async () => {
     setMsg(null);
-    if (!namespaceInput.trim() || !keyInput.trim()) {
-      setMsg("namespace و key لازم است.");
+
+    if (!namespaceInput.trim() || !keyInput.trim() || !valueInput.trim()) {
+      setMsg("Language, namespace, key, and value are required.");
       return;
     }
 
-    const row = {
-      namespace: namespaceInput.trim(),
-      key: keyInput.trim(),
-      lang: langFilter,
-      value: valueInput,
-    };
+    try {
+      const row = {
+        namespace: namespaceInput.trim(),
+        key: keyInput.trim(),
+        lang: langFilter,
+        entity_id: entityIdInput.trim() || null,
+        value: valueInput,
+      };
 
-    const { error } = await supabase.from("translations").upsert(row, {
-      onConflict: "lang,namespace,key",
-    });
+      const { error } = await supabase.from("translations").upsert(row, {
+        onConflict: "lang,namespace,key,entity_id",
+      });
 
-    if (error) setMsg(error.message);
-    else {
-      setMsg("ذخیره شد ✅");
+      if (error) throw error;
+
+      setMsg("Saved");
       resetForm();
       await load();
+    } catch (error) {
+      console.error(error);
+      setMsg(error instanceof Error ? error.message : "Failed to save translation");
     }
   };
 
-  const remove = async (namespace: string, key: string) => {
+  const remove = async (namespace: string, key: string, entityId?: string | null) => {
     setMsg(null);
 
-    const { error } = await supabase
-      .from("translations")
-      .delete()
-      .eq("namespace", namespace)
-      .eq("key", key)
-      .eq("lang", langFilter);
+    try {
+      let query = supabase
+        .from("translations")
+        .delete()
+        .eq("namespace", namespace)
+        .eq("key", key)
+        .eq("lang", langFilter);
 
-    if (error) setMsg(error.message);
-    else {
-      setMsg("حذف شد ✅");
+      if (entityId) query = query.eq("entity_id", entityId);
+      else query = query.is("entity_id", null);
+
+      const { error } = await query;
+      if (error) throw error;
+
+      setMsg("Deleted");
       await load();
+    } catch (error) {
+      console.error(error);
+      setMsg(error instanceof Error ? error.message : "Failed to delete translation");
     }
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="mx-auto max-w-7xl px-6 py-10">
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold">{t("page.dashboard.translations", "مدیریت ترجمه‌ها")}</h1>
-        <p className="mt-2 text-sm text-zinc-600">{t("page.dashboard.translations_desc", "متن‌های چندزبانه‌ی سایت")}</p>
+        <h1 className="text-3xl font-extrabold">
+          {t("page.dashboard.translations", "مدیریت ترجمه‌ها")}
+        </h1>
+        <p className="mt-2 text-sm text-zinc-600">
+          {t("page.dashboard.translations_desc", "متن‌های چندزبانه‌ی سایت")}
+        </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 lg:grid-cols-[1.25fr_400px]">
         <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <label htmlFor="lang" className="block text-sm font-semibold text-zinc-700">
-                {t("page.admin.translations.language")}
-              </label>
-              <select
-                id="lang"
-                title="Language"
-                value={langFilter}
-                onChange={(e) => setLangFilter(e.target.value)}
-                className="mt-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
-              >
-                {LANGS.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="mb-4 grid gap-4 md:grid-cols-[220px_1fr]">
+            <select
+              value={langFilter}
+              onChange={(event) => setLangFilter(event.target.value)}
+              title="Translation language"
+              className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+            >
+              {LANGS.map((entry) => (
+                <option key={entry.code} value={entry.code}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
 
-            <div className="min-w-[220px] flex-1">
-              <label htmlFor="search" className="block text-sm font-semibold text-zinc-700">
-                {t("page.admin.translations.search")}
-              </label>
-              <input
-                id="search"
-                title="Search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
-                placeholder="namespace / key / value ..."
-              />
-            </div>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="namespace / key / value / entity id"
+              className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+            />
           </div>
 
           {loading ? (
             <div className="space-y-3">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="h-12 animate-pulse rounded-2xl bg-zinc-100" />
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-12 animate-pulse rounded-2xl bg-zinc-100"
+                />
               ))}
             </div>
           ) : (
             <div className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200">
-              {filtered.map((row) => (
-                <div key={`${row.namespace}.${row.key}`} className="flex items-start justify-between gap-4 p-4">
+              {filtered.map((item) => (
+                <div
+                  key={`${item.namespace}.${item.key}.${item.entity_id ?? "base"}`}
+                  className="flex items-start justify-between gap-4 p-4"
+                >
                   <div className="min-w-0">
-                    <div className="text-xs text-zinc-500">{row.namespace}</div>
-                    <div className="text-sm font-bold text-zinc-900">{row.key}</div>
-                    <div className="mt-1 break-words text-sm text-zinc-600">{row.value}</div>
+                    <div className="text-xs text-zinc-500">{item.namespace}</div>
+                    <div className="text-sm font-bold text-zinc-900">{item.key}</div>
+                    {item.entity_id ? (
+                      <div className="mt-1 text-xs text-zinc-400">
+                        entity: {item.entity_id}
+                      </div>
+                    ) : null}
+                    <div className="mt-2 break-words text-sm text-zinc-600">
+                      {item.value}
+                    </div>
                   </div>
 
                   <div className="flex shrink-0 gap-2">
                     <button
                       type="button"
                       onClick={() => {
-                        setEditNamespace(row.namespace);
-                        setEditKey(row.key);
-                        setNamespaceInput(row.namespace);
-                        setKeyInput(row.key);
-                        setValueInput(row.value);
+                        setEditNamespace(item.namespace);
+                        setEditKey(item.key);
+                        setEditEntityId(item.entity_id ?? null);
+                        setNamespaceInput(item.namespace);
+                        setKeyInput(item.key);
+                        setEntityIdInput(item.entity_id ?? "");
+                        setValueInput(item.value);
                       }}
                       className="rounded-xl bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-200"
                     >
-                      {t("page.admin.translations.edit")}
+                      {t("page.admin.translations.edit", "ویرایش")}
                     </button>
-
                     <button
                       type="button"
-                      onClick={() => remove(row.namespace, row.key)}
+                      onClick={() => void remove(item.namespace, item.key, item.entity_id)}
                       className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-rose-700"
                     >
-                      {t("page.admin.translations.delete")}
+                      {t("page.admin.translations.delete", "حذف")}
                     </button>
                   </div>
                 </div>
               ))}
 
-              {filtered.length === 0 ? (
-                <div className="p-6 text-sm text-zinc-600">چیزی پیدا نشد.</div>
+              {!filtered.length ? (
+                <div className="p-6 text-sm text-zinc-500">No translations found.</div>
               ) : null}
             </div>
           )}
         </section>
 
         <aside className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-          <h2 className="text-lg font-extrabold">
-            {editKey ? t("page.admin.translations.edit") : t("page.admin.translations.create")}
+          <h2 className="text-lg font-extrabold text-zinc-900">
+            {editKey
+              ? t("page.admin.translations.edit", "ویرایش")
+              : t("page.admin.translations.create", "ایجاد")}
           </h2>
 
           <div className="mt-5 space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-zinc-700" htmlFor="namespace">
+              <label
+                className="block text-sm font-semibold text-zinc-700"
+                htmlFor="translation-lang"
+              >
+                Language
+              </label>
+              <select
+                id="translation-lang"
+                value={langFilter}
+                onChange={(event) => setLangFilter(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+              >
+                {LANGS.map((entry) => (
+                  <option key={entry.code} value={entry.code}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-zinc-500">
+                New records are saved with this language.
+              </p>
+            </div>
+
+            <div>
+              <label
+                className="block text-sm font-semibold text-zinc-700"
+                htmlFor="namespace"
+              >
                 Namespace
               </label>
               <input
                 id="namespace"
                 value={namespaceInput}
-                onChange={(e) => setNamespaceInput(e.target.value)}
+                onChange={(event) => setNamespaceInput(event.target.value)}
                 className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
                 placeholder="page.home"
                 disabled={!!editNamespace}
@@ -230,13 +288,16 @@ export default function DashboardTranslationsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-zinc-700" htmlFor="key">
+              <label
+                className="block text-sm font-semibold text-zinc-700"
+                htmlFor="translation-key"
+              >
                 Key
               </label>
               <input
-                id="key"
+                id="translation-key"
                 value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
+                onChange={(event) => setKeyInput(event.target.value)}
                 className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
                 placeholder="hero.title"
                 disabled={!!editKey}
@@ -244,24 +305,44 @@ export default function DashboardTranslationsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-zinc-700" htmlFor="value">
+              <label
+                className="block text-sm font-semibold text-zinc-700"
+                htmlFor="entity-id"
+              >
+                Entity Id
+              </label>
+              <input
+                id="entity-id"
+                value={entityIdInput}
+                onChange={(event) => setEntityIdInput(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                placeholder="optional for travel-specific translation"
+                disabled={editEntityId !== null}
+              />
+            </div>
+
+            <div>
+              <label
+                className="block text-sm font-semibold text-zinc-700"
+                htmlFor="translation-value"
+              >
                 Value
               </label>
               <textarea
-                id="value"
+                id="translation-value"
                 value={valueInput}
-                onChange={(e) => setValueInput(e.target.value)}
-                className="mt-2 h-28 w-full resize-none rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
-                placeholder="متن ترجمه..."
+                onChange={(event) => setValueInput(event.target.value)}
+                className="mt-2 h-32 w-full resize-none rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                placeholder="Translation text..."
               />
             </div>
 
             <button
               type="button"
-              onClick={upsert}
+              onClick={() => void upsert()}
               className="w-full rounded-2xl bg-zinc-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-zinc-800"
             >
-              {t("common.save")}
+              {t("common.save", "ذخیره")}
             </button>
 
             <button
@@ -269,7 +350,7 @@ export default function DashboardTranslationsPage() {
               onClick={resetForm}
               className="w-full rounded-2xl bg-zinc-100 px-6 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
             >
-              {t("page.admin.translations.clear_form")}
+              {t("page.admin.translations.clear_form", "پاک کردن فرم")}
             </button>
 
             {msg ? <div className="text-sm text-zinc-700">{msg}</div> : null}

@@ -104,6 +104,15 @@ export default function TravelDetailPage() {
 
   const locale =
     lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
+  const imageSrc = localizedTravel.image_url || "/images/travel.jpg";
+  const itemType =
+    localizedTravel.type === "event"
+      ? t("travel.type.event", "Event")
+      : t("travel.type.travel", "Travel");
+  const locationText =
+    localizedTravel.type === "event"
+      ? localizedTravel.origin
+      : `${localizedTravel.origin} → ${localizedTravel.destination}`;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
@@ -111,18 +120,18 @@ export default function TravelDetailPage() {
         <div className="overflow-hidden rounded-[32px] bg-white shadow-sm ring-1 ring-zinc-200">
           <div className="relative h-[320px]">
             <img
-              src="/images/travel.jpg"
+              src={imageSrc}
               alt={localizedTravel.name}
               className="h-full w-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
             <div className="absolute bottom-6 right-6 left-6 text-white">
               <div className="mb-2 inline-block rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
-                Energy Travel
+                {itemType}
               </div>
               <h1 className="text-3xl font-extrabold">{localizedTravel.name}</h1>
               <p className="mt-2 text-sm text-white/90">
-                {localizedTravel.origin} → {localizedTravel.destination}
+                {locationText}
               </p>
             </div>
           </div>
@@ -145,25 +154,31 @@ export default function TravelDetailPage() {
           <div className="mt-6 space-y-4">
             <div className="rounded-2xl bg-zinc-50 p-4">
               <div className="text-xs text-zinc-500">
-                {t("page.travel_detail.origin")}
+                {localizedTravel.type === "event"
+                  ? t("event.venue", "Venue")
+                  : t("page.travel_detail.origin")}
               </div>
               <div className="mt-1 font-bold text-zinc-900">
                 {localizedTravel.origin}
               </div>
             </div>
 
-            <div className="rounded-2xl bg-zinc-50 p-4">
-              <div className="text-xs text-zinc-500">
-                {t("page.travel_detail.destination")}
+            {localizedTravel.type !== "event" ? (
+              <div className="rounded-2xl bg-zinc-50 p-4">
+                <div className="text-xs text-zinc-500">
+                  {t("page.travel_detail.destination")}
+                </div>
+                <div className="mt-1 font-bold text-zinc-900">
+                  {localizedTravel.destination}
+                </div>
               </div>
-              <div className="mt-1 font-bold text-zinc-900">
-                {localizedTravel.destination}
-              </div>
-            </div>
+            ) : null}
 
             <div className="rounded-2xl bg-zinc-50 p-4">
               <div className="text-xs text-zinc-500">
-                {t("page.travel_detail.departure")}
+                {localizedTravel.type === "event"
+                  ? t("event.start", "Program start")
+                  : t("page.travel_detail.departure")}
               </div>
               <div className="mt-1 font-bold text-zinc-900">
                 {new Date(localizedTravel.departure_at).toLocaleString(locale)}
@@ -172,7 +187,9 @@ export default function TravelDetailPage() {
 
             <div className="rounded-2xl bg-zinc-50 p-4">
               <div className="text-xs text-zinc-500">
-                {t("page.travel_detail.return")}
+                {localizedTravel.type === "event"
+                  ? t("event.end", "Program end")
+                  : t("page.travel_detail.return")}
               </div>
               <div className="mt-1 font-bold text-zinc-900">
                 {new Date(localizedTravel.return_at).toLocaleString(locale)}

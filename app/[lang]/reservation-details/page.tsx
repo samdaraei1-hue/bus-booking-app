@@ -1,0 +1,323 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { useT } from "@/lib/translations/useT.client";
+
+type ReservationItemForm = {
+  id: string;
+  layout_seat_id: string;
+  label: string;
+  passenger_name: string;
+  passenger_email: string;
+  passenger_phone: string;
+};
+
+export default function ReservationDetailsPage() {
+  const params = useParams<{ lang: string }>();
+  const lang = params.lang;
+  const router = useRouter();
+  const sp = useSearchParams();
+  const reservationId = sp.get("reservation") ?? "";
+  const t = useT(lang);
+
+  const [items, setItems] = useState<ReservationItemForm[]>([]);
+  const [travelId, setTravelId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      if (!reservationId) {
+        setLoading(false);
+        setMsg(t("page.reservation_details.not_found", "Reservation not found."));
+        return;
+      }
+
+      setLoading(true);
+      setMsg(null);
+
+      try {
+        const { data, error } = await supabase
+          .from("reservation_items")
+          .select(
+            `
+              id,
+              layout_seat_id,
+              passenger_name,
+              passenger_email,
+              passenger_phone,
+              layout_seats:layout_seat_id(label),
+              reservation_groups:reservation_group_id(travel_id, status)
+            `
+          )
+          .eq("reservation_group_id", reservationId);
+
+        if (!mounted) return;
+        if (error) throw error;
+
+        const rows = (data ?? []) as Array<{
+          id: string;
+          layout_seat_id: string;
+          passenger_name: string | null;
+          passenger_email: string | null;
+          passenger_phone: string | null;
+          layout_seats: Array<{ label: string }>;
+          reservation_groups: Array<{ travel_id: string; status: string }>;
+        }>;
+
+        setItems(
+          rows.map((row) => ({
+            id: row.id,
+            layout_seat_id: row.layout_seat_id,
+            label: row.layout_seats?.[0]?.label ?? row.layout_seat_id,
+            passenger_name: row.passenger_name ?? "",
+            passenger_email: row.passenger_email ?? "",
+            passenger_phone: row.passenger_phone ?? "",
+          }))
+        );
+        setTravelId(rows[0]?.reservation_groups?.[0]?.travel_id ?? "");
+      } catch (error) {
+        console.error(error);
+        setMsg(
+          error instanceof Error
+            ? error.message
+            : t(
+                "page.reservation_details.load_failed",
+                "Failed to load reservation details"
+              )
+        );
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [reservationId]);
+
+  const canContinue = useMemo(
+    () =>
+      items.length > 0 &&
+      items.every(
+        (item) =>
+          item.passenger_name.trim() &&
+          item.passenger_phone.trim()
+      ),
+    [items]
+  );
+
+  const updateItem = (
+    itemId: string,
+    field: "passenger_name" | "passenger_email" | "passenger_phone",
+    value: string
+  ) => {
+    setItems((current) =>
+      current.map((item) =>
+        item.id === itemId ? { ...item, [field]: value } : item
+      )
+    );
+  };
+
+  const saveAndContinue = async () => {
+    setSaving(true);
+    setMsg(null);
+
+    try {
+      const hasInvalidPassenger = items.some(
+        (item) => !item.passenger_name.trim() || !item.passenger_phone.trim()
+      );
+
+      if (hasInvalidPassenger) {
+        setMsg(
+          t(
+            "page.reservation_details.required_error",
+            "Passenger name and phone are required for every seat."
+          )
+        );
+        return;
+      }
+
+      for (const item of items) {
+        const { error } = await supabase
+          .from("reservation_items")
+          .update({
+            passenger_name: item.passenger_name.trim(),
+            passenger_email: item.passenger_email.trim() || null,
+            passenger_phone: item.passenger_phone.trim(),
+            status: "awaiting_payment",
+          })
+          .eq("id", item.id);
+
+        if (error) throw error;
+      }
+
+      const { error: groupError } = await supabase
+        .from("reservation_groups")
+        .update({ status: "awaiting_payment" })
+        .eq("id", reservationId);
+
+      if (groupError) throw groupError;
+
+      router.push(
+        `/${lang}/payment?reservation=${encodeURIComponent(
+          reservationId
+        )}&travel=${encodeURIComponent(travelId)}`
+      );
+    } catch (error) {
+      console.error(error);
+        setMsg(
+          error instanceof Error
+            ? error.message
+            : t(
+                "page.reservation_details.save_failed",
+                "Failed to save passenger information"
+              )
+        );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const releaseHoldAndGoBack = async () => {
+    setSaving(true);
+    setMsg(null);
+
+    try {
+      const { error: itemsDeleteError } = await supabase
+        .from("reservation_items")
+        .delete()
+        .eq("reservation_group_id", reservationId);
+
+      if (itemsDeleteError) throw itemsDeleteError;
+
+      const { error: groupDeleteError } = await supabase
+        .from("reservation_groups")
+        .delete()
+        .eq("id", reservationId);
+
+      if (groupDeleteError) throw groupDeleteError;
+
+      router.back();
+    } catch (error) {
+      console.error(error);
+      setMsg(
+        error instanceof Error
+          ? error.message
+          : t(
+              "page.reservation_details.release_failed",
+              "Failed to release held seats"
+            )
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-4xl px-6 py-10">
+        <div className="h-72 animate-pulse rounded-3xl bg-zinc-100" />
+      </main>
+    );
+  }
+
+  return (
+    <main className="mx-auto max-w-4xl px-6 py-10">
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold">
+          {t("page.reservation_details.title", "Passenger details")}
+        </h1>
+        <p className="mt-2 text-sm text-zinc-600">
+          {t(
+            "page.reservation_details.subtitle",
+            "Enter passenger details for each selected seat before payment."
+          )}
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {items.map((item) => (
+          <section
+            key={item.id}
+            className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200"
+          >
+            <h2 className="text-lg font-bold text-zinc-900">
+              {t("page.reservation_details.seat_prefix", "Seat")} {item.label}
+            </h2>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <input
+                value={item.passenger_name}
+                onChange={(event) =>
+                  updateItem(item.id, "passenger_name", event.target.value)
+                }
+                placeholder={t(
+                  "page.reservation_details.passenger_name",
+                  "Passenger name *"
+                )}
+                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+              />
+              <input
+                value={item.passenger_email}
+                onChange={(event) =>
+                  updateItem(item.id, "passenger_email", event.target.value)
+                }
+                placeholder={t(
+                  "page.reservation_details.passenger_email",
+                  "Passenger email"
+                )}
+                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+              />
+              <input
+                value={item.passenger_phone}
+                onChange={(event) =>
+                  updateItem(item.id, "passenger_phone", event.target.value)
+                }
+                placeholder={t(
+                  "page.reservation_details.passenger_phone",
+                  "Passenger phone *"
+                )}
+                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+              />
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => void releaseHoldAndGoBack()}
+          disabled={saving}
+          className="rounded-2xl bg-zinc-100 px-6 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
+        >
+          {saving
+            ? t("page.reservation_details.releasing", "Releasing...")
+            : t("common.back", "Back")}
+        </button>
+        <button
+          type="button"
+          disabled={!canContinue || saving}
+          onClick={() => void saveAndContinue()}
+          className="rounded-2xl bg-rose-600 px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
+        >
+          {saving
+            ? t("page.reservation_details.saving", "Saving...")
+            : t(
+                "page.reservation_details.continue_payment",
+                "Continue to payment"
+              )}
+        </button>
+      </div>
+
+      {msg ? <div className="mt-4 text-sm text-rose-600">{msg}</div> : null}
+    </main>
+  );
+}
