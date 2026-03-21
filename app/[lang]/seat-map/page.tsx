@@ -54,24 +54,13 @@ export default function SeatMapPage() {
       setMsg(null);
 
       try {
-        const [
-          { data: travelRow, error: travelError },
-          { data: authData, error: authError },
-        ] = await Promise.all([
-          supabase
-            .from("travels")
-            .select("id, name, origin, destination, layout_id")
-            .eq("id", travelId)
-            .single(),
-          supabase.auth.getUser(),
-        ]);
+        const { data: travelRow, error: travelError } = await supabase
+          .from("travels")
+          .select("id, name, origin, destination, layout_id")
+          .eq("id", travelId)
+          .single();
 
         if (!mounted) return;
-
-        if (authError || !authData.user) {
-          router.push(`/${lang}/login`);
-          return;
-        }
 
         if (travelError) {
           setMsg(travelError.message);
@@ -277,13 +266,15 @@ export default function SeatMapPage() {
       </div>
 
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-        <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between">
           <div className="text-sm font-semibold text-zinc-700">
             {t("page.seat_map.bus_map")}
           </div>
           <div className="text-sm text-zinc-600">
             {t("page.seat_map.selected_count")}:{" "}
-            <span className="font-bold">{selectedSeatIds.length}</span>
+            <span className="font-bold">
+              {isViewMode ? viewSeatIds.length : selectedSeatIds.length}
+            </span>
           </div>
         </div>
 
