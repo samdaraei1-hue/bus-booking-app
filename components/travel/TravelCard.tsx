@@ -61,7 +61,7 @@ export default function TravelCard({
           </p>
 
           <p className="text-sm text-zinc-500">
-            {new Date(localizedTravel.departure_at).toLocaleString(lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US")}
+            {new Date(localizedTravel.departure_at).toLocaleString(lang === "fa" ? "de-DE" : lang === "de" ? "de-DE" : "en-US")}
           </p>
 
           <div className="pt-2 text-sm font-semibold text-rose-600">

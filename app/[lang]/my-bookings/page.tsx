@@ -49,7 +49,7 @@ function formatDate(value: string, lang: string) {
   if (Number.isNaN(date.getTime())) return "-";
 
   return date.toLocaleString(
-    lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US"
+    lang === "fa" ? "de-DE" : lang === "de" ? "de-DE" : "en-US"
   );
 }
 

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
+import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -75,30 +76,18 @@ export default function PaymentPage() {
       return;
     }
 
-    const { error: itemsError } = await supabase
-      .from("reservation_items")
-      .update({ status: "paid" })
-      .eq("reservation_group_id", reservationId);
+    const response = await fetchWithSupabaseAuth(
+      `/api/reservations/${encodeURIComponent(reservationId)}/complete-payment`,
+      {
+        method: "POST",
+      }
+    );
 
-    if (itemsError) {
-      setMsg(itemsError.message);
-      setLoading(false);
-      return;
-    }
-
-    const { error: groupError } = await supabase
-      .from("reservation_groups")
-      .update({
-        status: "paid",
-        payment_provider: "paypal_sandbox",
-        payment_ref: crypto.randomUUID(),
-        paid_at: new Date().toISOString(),
-      })
-      .eq("id", reservationId)
-      .eq("booker_user_id", user.id);
-
-    if (groupError) {
-      setMsg(groupError.message);
+    if (!response.ok) {
+      setMsg(
+        (response.data as { error?: string } | null)?.error ??
+          "Failed to complete payment."
+      );
       setLoading(false);
       return;
     }

@@ -103,7 +103,7 @@ export default function TravelDetailPage() {
   }
 
   const locale =
-    lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US";
+    lang === "fa" ? "de-DE"  : lang === "de" ? "de-DE" : "en-US";
   const imageSrc = localizedTravel.image_url || "/images/travel.jpg";
   const itemType =
     localizedTravel.type === "event"

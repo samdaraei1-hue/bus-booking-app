@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
+import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
 
 type ReservationItemForm = {
   id: string;
@@ -160,26 +161,27 @@ export default function ReservationDetailsPage() {
         return;
       }
 
-      for (const item of items) {
-        const { error } = await supabase
-          .from("reservation_items")
-          .update({
-            passenger_name: item.passenger_name.trim(),
-            passenger_email: item.passenger_email.trim() || null,
-            passenger_phone: item.passenger_phone.trim(),
-            status: "awaiting_payment",
-          })
-          .eq("id", item.id);
+      const response = await fetchWithSupabaseAuth(
+        `/api/reservations/${encodeURIComponent(reservationId)}/passengers`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            items: items.map((item) => ({
+              id: item.id,
+              passenger_name: item.passenger_name,
+              passenger_email: item.passenger_email,
+              passenger_phone: item.passenger_phone,
+            })),
+          }),
+        }
+      );
 
-        if (error) throw error;
+      if (!response.ok) {
+        throw new Error(
+          (response.data as { error?: string } | null)?.error ??
+            "Failed to save passenger information"
+        );
       }
-
-      const { error: groupError } = await supabase
-        .from("reservation_groups")
-        .update({ status: "awaiting_payment" })
-        .eq("id", reservationId);
-
-      if (groupError) throw groupError;
 
       router.push(
         `/${lang}/payment?reservation=${encodeURIComponent(

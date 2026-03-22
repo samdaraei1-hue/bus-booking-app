@@ -8,6 +8,7 @@ import { useT } from "@/lib/translations/useT.client";
 import type { LayoutSeat, Travel } from "@/lib/types";
 import { isReservationActive } from "@/lib/reservations";
 import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
+import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
 
 type ReservationItemRow = {
   layout_seat_id: string;
@@ -264,33 +265,27 @@ export default function SeatMapPage() {
       return;
     }
 
-    const { data: groupRow, error: groupError } = await supabase
-      .from("reservation_groups")
-      .insert({
-        travel_id: travelId,
-        booker_user_id: user.id,
-        status: "held",
-        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-      })
-      .select("id")
-      .single();
+    const response = await fetchWithSupabaseAuth("/api/reservations/hold", {
+      method: "POST",
+      body: JSON.stringify({
+        travelId,
+        seatIds: selectedSeatIds,
+      }),
+    });
 
-    if (groupError || !groupRow) {
-      setMsg(groupError?.message ?? "Failed to create reservation hold");
+    if (!response.ok) {
+      setMsg(
+        (response.data as { error?: string } | null)?.error ??
+          "Failed to create reservation hold"
+      );
       return;
     }
 
-    const { error: itemsError } = await supabase.from("reservation_items").insert(
-      selectedSeatIds.map((seatId) => ({
-        reservation_group_id: groupRow.id,
-        layout_seat_id: seatId,
-        status: "held",
-      }))
-    );
+    const reservationId =
+      (response.data as { reservationId?: string } | null)?.reservationId ?? "";
 
-    if (itemsError) {
-      setMsg(itemsError.message);
-      await supabase.from("reservation_groups").delete().eq("id", groupRow.id);
+    if (!reservationId) {
+      setMsg("Failed to create reservation hold");
       return;
     }
 
@@ -299,7 +294,7 @@ export default function SeatMapPage() {
     } catch {}
 
     router.push(
-      `/${lang}/reservation-details?reservation=${encodeURIComponent(groupRow.id)}`
+      `/${lang}/reservation-details?reservation=${encodeURIComponent(reservationId)}`
     );
   };
 

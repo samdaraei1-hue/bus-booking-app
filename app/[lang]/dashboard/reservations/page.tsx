@@ -60,15 +60,11 @@ export default function DashboardReservationsPage() {
 
     try {
       const { data, error } = await supabase
-        .from("bus_seats_reservation")
+        .from("reservation_group")
         .select(
           `
             id,
             travel_id,
-            seat_no,
-            passenger_name,
-            passenger_email,
-            passenger_phone,
             booker_user_id,
             status,
             travels:travel_id (
@@ -82,7 +78,14 @@ export default function DashboardReservationsPage() {
               id,
               name,
               email
-            )
+            ),
+            reservation_items:reservation_group_id (
+            passenger_name,
+            passenger_email,
+            passenger_phone,
+            ),
+            layout_seats:layout_seat_id, (
+            label
           `
         )
         .order("id", { ascending: false });
