@@ -23,7 +23,7 @@ type ReservationUser = {
 type ReservationRow = {
   id: string;
   travel_id: string;
-  seat_no: number;
+  seat_label: string;
   passenger_name: string | null;
   passenger_email: string | null;
   passenger_phone: string | null;
@@ -33,7 +33,7 @@ type ReservationRow = {
   booker: ReservationUser | null;
 };
 
-const STATUS_OPTIONS = ["pre", "paid", "cancelled", "Pre-Reservation", "Paid"] as const;
+const STATUS_OPTIONS = ["held", "awaiting_payment", "paid", "cancelled", "expired"] as const;
 
 export default function DashboardReservationsPage() {
   const params = useParams<{ lang: string }>();
@@ -60,39 +60,52 @@ export default function DashboardReservationsPage() {
 
     try {
       const { data, error } = await supabase
-        .from("reservation_group")
+        .from("reservation_items")
         .select(
           `
             id,
-            travel_id,
-            booker_user_id,
-            status,
-            travels:travel_id (
-              id,
-              name,
-              origin,
-              destination,
-              departure_at
-            ),
-            booker:booker_user_id (
-              id,
-              name,
-              email
-            ),
-            reservation_items:reservation_group_id (
             passenger_name,
             passenger_email,
             passenger_phone,
+            status,
+            layout_seats (
+              label
             ),
-            layout_seats:layout_seat_id, (
-            label
+            reservation_groups (
+              booker_user_id,
+              travel_id,
+              travels (
+                id,
+                name,
+                origin,
+                destination,
+                departure_at
+              ),
+              users (
+                id,
+                name,
+                email
+              )
+            )
           `
         )
-        .order("id", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      const rows = (data ?? []) as unknown as ReservationRow[];
+      const rows = (data ?? []).map((item: any) => ({
+        id: item.id,
+        travel_id: item.reservation_groups?.travel_id,
+        seat_label: item.layout_seats?.label || "?",
+        passenger_name: item.passenger_name,
+        passenger_email: item.passenger_email,
+        passenger_phone: item.passenger_phone,
+        booker_user_id: item.reservation_groups?.booker_user_id,
+        status: item.status,
+        travels: item.reservation_groups?.travels,
+        booker: item.reservation_groups?.users,
+      })) as ReservationRow[];
+
       setItems(rows);
 
       const ids = Array.from(
@@ -119,7 +132,7 @@ export default function DashboardReservationsPage() {
 
     try {
       const { error } = await supabase
-        .from("bus_seats_reservation")
+        .from("reservation_items")
         .update({ status })
         .eq("id", id);
 
@@ -159,7 +172,7 @@ export default function DashboardReservationsPage() {
         item.booker?.email,
         item.booker?.name,
         item.status,
-        String(item.seat_no),
+        item.seat_label,
       ]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(needle));
@@ -170,7 +183,7 @@ export default function DashboardReservationsPage() {
     return {
       total: items.length,
       paid: items.filter((item) => item.status.toLowerCase() === "paid").length,
-      pre: items.filter((item) => item.status.toLowerCase().includes("pre")).length,
+      pre: items.filter((item) => ["held", "awaiting_payment"].includes(item.status.toLowerCase())).length,
       cancelled: items.filter((item) => item.status.toLowerCase() === "cancelled")
         .length,
     };
@@ -296,7 +309,7 @@ export default function DashboardReservationsPage() {
                         </div>
                       </td>
                       <td className="px-3 py-4 text-zinc-900">
-                        #{item.seat_no}
+                        {item.seat_label}
                       </td>
                       <td className="px-3 py-4">
                         <select
