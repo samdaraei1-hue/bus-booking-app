@@ -8,7 +8,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 function createRouteClient(accessToken?: string) {
-  return createClient(supabaseUrl, supabaseAnonKey, {
+  return createClient(supabaseUrl!, supabaseAnonKey!, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
