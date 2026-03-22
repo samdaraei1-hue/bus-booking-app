@@ -147,6 +147,14 @@ export default function DashboardTravelsPage() {
                       Seat Layout
                     </button>
                     <button
+                      onClick={() =>
+                        router.push(`/${lang}/dashboard/travels/${travel.id}/translations`)
+                      }
+                      className="mr-2 text-violet-600 hover:underline"
+                    >
+                      Translations
+                    </button>
+                    <button
                       onClick={() => deleteTravel(travel.id)}
                       className="text-red-600 hover:underline"
                     >

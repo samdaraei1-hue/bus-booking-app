@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -31,42 +32,58 @@ export default function Navbar({ lang }: { lang: string }) {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/20 bg-white/70 backdrop-blur-xl shadow-sm">
+    <header className="sticky top-0 z-50 border-b border-white/20 bg-white/70 shadow-sm backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <a
+        <Link
           href={`/${lang}`}
           className="flex items-center gap-3 text-2xl font-extrabold text-rose-600"
         >
-          <img src="/logo.png" alt="Energy Travel" className="h-10 w-10 object-contain" />
+          <img
+            src="/logo.png"
+            alt="Energy Travel"
+            className="h-10 w-10 object-contain"
+          />
           <span>{t("navbar.brand", "Energy Travel")}</span>
-        </a>
+        </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
-          <a href={`/${lang}/travels`} className="font-medium text-zinc-700 transition hover:text-rose-600">
+          <Link
+            href={`/${lang}/travels`}
+            className="font-medium text-zinc-700 transition hover:text-rose-600"
+          >
             {t("navbar.travels", "Trips / Programs")}
-          </a>
+          </Link>
 
           {!loading && viewer ? (
             <>
-              <a href={`/${lang}/my-bookings`} className="font-medium text-zinc-700 transition hover:text-rose-600">
+              <Link
+                href={`/${lang}/my-bookings`}
+                className="font-medium text-zinc-700 transition hover:text-rose-600"
+              >
                 {t("navbar.my_bookings", "رزروهای من")}
-              </a>
+              </Link>
 
-              <a href={`/${lang}/profile`} className="font-medium text-zinc-700 transition hover:text-rose-600">
+              <Link
+                href={`/${lang}/profile`}
+                className="font-medium text-zinc-700 transition hover:text-rose-600"
+              >
                 {t("navbar.profile", "پروفایل")}
-              </a>
+              </Link>
 
               {dashboardAllowed ? (
-                <a href={`/${lang}/dashboard`} className="font-medium text-zinc-700 transition hover:text-rose-600">
+                <Link
+                  href={`/${lang}/dashboard`}
+                  className="font-medium text-zinc-700 transition hover:text-rose-600"
+                >
                   {t("navbar.dashboard", "داشبورد")}
-                </a>
+                </Link>
               ) : null}
 
               <button
                 type="button"
                 onClick={logout}
                 disabled={loggingOut}
-                className="font-medium text-zinc-700 transition hover:text-rose-600 cursor-pointer"
+                className="cursor-pointer font-medium text-zinc-700 transition hover:text-rose-600"
               >
                 {loggingOut
                   ? t("common.loading", "Loading...")
@@ -76,15 +93,18 @@ export default function Navbar({ lang }: { lang: string }) {
           ) : null}
 
           {!loading && !viewer ? (
-            <a href={`/${lang}/login`} className="font-medium text-zinc-700 transition hover:text-rose-600">
+            <Link
+              href={`/${lang}/login`}
+              className="font-medium text-zinc-700 transition hover:text-rose-600"
+            >
               {t("navbar.login", "ورود")}
-            </a>
+            </Link>
           ) : null}
         </nav>
 
         <div className="flex items-center gap-2">
           {["fa", "en", "de"].map((code) => (
-            <a
+            <Link
               key={code}
               href={switchLangHref(code)}
               className={[
@@ -95,7 +115,7 @@ export default function Navbar({ lang }: { lang: string }) {
               ].join(" ")}
             >
               {code.toUpperCase()}
-            </a>
+            </Link>
           ))}
         </div>
       </div>

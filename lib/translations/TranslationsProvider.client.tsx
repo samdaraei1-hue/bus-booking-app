@@ -18,8 +18,35 @@ type TranslationContextValue = {
 };
 
 const translationCache = new Map<string, Dict>();
+const STORAGE_PREFIX = "translations-cache:";
 
 const TranslationContext = createContext<TranslationContextValue | null>(null);
+
+function readStoredTranslations(lang: string) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(`${STORAGE_PREFIX}${lang}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { dict?: Dict };
+    return parsed.dict ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredTranslations(lang: string, dict: Dict) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      `${STORAGE_PREFIX}${lang}`,
+      JSON.stringify({ dict, savedAt: Date.now() })
+    );
+  } catch {
+    // ignore storage quota / private mode failures
+  }
+}
 
 async function fetchTranslations(lang: string) {
   const { data, error } = await supabase
@@ -37,6 +64,7 @@ async function fetchTranslations(lang: string) {
   });
 
   translationCache.set(lang, next);
+  writeStoredTranslations(lang, next);
   return next;
 }
 
@@ -56,8 +84,15 @@ export function TranslationsProvider({
   const requestIdRef = useRef(0);
 
   useEffect(() => {
-    translationCache.set(lang, initialDict);
-    setDict(initialDict);
+    const stored = readStoredTranslations(lang);
+    const nextDict =
+      Object.keys(initialDict).length > 0 ? initialDict : stored ?? initialDict;
+
+    translationCache.set(lang, nextDict);
+    setDict(nextDict);
+    if (Object.keys(nextDict).length > 0) {
+      writeStoredTranslations(lang, nextDict);
+    }
   }, [initialDict, lang]);
 
   useEffect(() => {
