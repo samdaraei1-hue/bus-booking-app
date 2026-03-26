@@ -90,31 +90,29 @@ export default function DashboardTravelsPage() {
         </button>
       </div>
 
-      <div className="rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200 overflow-hidden">
-        {/* Desktop View: Table */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full">
+      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
+        <table className="w-full">
           <thead>
             <tr className="border-b">
-              <th className="p-4 text-start font-semibold text-zinc-700">
+              <th className="p-2 text-start">
                 {t("travels.type", "Type")}
               </th>
-              <th className="p-4 text-start font-semibold text-zinc-700">
+              <th className="p-2 text-start">
                 {t("dashboardtravels.name", "نام")}
               </th>
-              <th className="p-4 text-start font-semibold text-zinc-700">
+              <th className="p-2 text-start">
                 {t("page.travel_detail.origin", "مبدا")}
               </th>
-              <th className="p-4 text-start font-semibold text-zinc-700">
+              <th className="p-2 text-start">
                 {t("page.travel_detail.destination", "مقصد")}
               </th>
-              <th className="p-4 text-start font-semibold text-zinc-700">
+              <th className="p-2 text-start">
                 {t("page.travel_detail.departure", "تاریخ حرکت")}
               </th>
-              <th className="p-4 text-start font-semibold text-zinc-700">
+              <th className="p-2 text-start">
                 {t("page.travel_detail.price", "قیمت")}
               </th>
-              <th className="p-4 text-start font-semibold text-zinc-700">
+              <th className="p-2 text-start">
                 {t("dashboardtravels.actions", "عملیات")}
               </th>
             </tr>
@@ -130,19 +128,19 @@ export default function DashboardTravelsPage() {
 
               return (
                 <tr key={travel.id} className="border-b">
-                  <td className="p-4">
+                  <td className="p-2">
                     {travel.type === "event"
                       ? t("travel.type.event", "Event")
                       : t("travel.type.travel", "Travel")}
                   </td>
-                  <td className="p-4 font-medium">{localized.name}</td>
-                  <td className="p-4">{localized.origin}</td>
-                  <td className="p-4">{localized.destination || "-"}</td>
-                  <td className="p-4">
-                    {travel.departure_at ? new Date(travel.departure_at).toLocaleDateString() : "-"}
+                  <td className="p-2">{localized.name}</td>
+                  <td className="p-2">{localized.origin}</td>
+                  <td className="p-2">{localized.destination || "-"}</td>
+                  <td className="p-2">
+                    {new Date(travel.departure_at).toLocaleDateString()}
                   </td>
-                  <td className="p-4 font-bold">{travel.price} €</td>
-                  <td className="p-4">
+                  <td className="p-2">{travel.price}</td>
+                  <td className="p-2">
                     <button
                       onClick={() =>
                         router.push(`/${lang}/dashboard/travels/${travel.id}/edit`)
@@ -179,50 +177,6 @@ export default function DashboardTravelsPage() {
             })}
           </tbody>
         </table>
-        </div>
-
-        {/* Mobile View: Cards */}
-        <div className="md:hidden divide-y divide-zinc-100">
-          {travels.map((travel) => {
-            const i18n = travelTranslations[travel.id] || {};
-            const localized = {
-              name: i18n.name ?? travel.name,
-              origin: i18n.origin ?? travel.origin,
-              destination: i18n.destination ?? travel.destination,
-            };
-
-            return (
-              <div key={travel.id} className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-rose-600">
-                    {travel.type === "event" ? t("travel.type.event", "Event") : t("travel.type.travel", "Travel")}
-                  </span>
-                  <span className="text-sm font-bold text-zinc-900">{travel.price} €</span>
-                </div>
-                <div>
-                  <h3 className="font-bold text-zinc-900">{localized.name}</h3>
-                  <p className="text-xs text-zinc-500 mt-1">
-                    {localized.origin} {localized.destination ? `→ ${localized.destination}` : ""}
-                  </p>
-                  <p className="mt-2 text-xs font-medium text-zinc-600">
-                    📅 {travel.departure_at ? new Date(travel.departure_at).toLocaleDateString() : "-"}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-x-6 gap-y-2 pt-3 border-t border-zinc-50">
-                  <button onClick={() => router.push(`/${lang}/dashboard/travels/${travel.id}/edit`)} className="text-sm font-semibold text-blue-600">
-                    {t("button.edit", "ویرایش")}
-                  </button>
-                  <button onClick={() => router.push(`/${lang}/dashboard/travels/${travel.id}/layout`)} className="text-sm font-semibold text-emerald-600">
-                    Layout
-                  </button>
-                  <button onClick={() => deleteTravel(travel.id)} className="text-sm font-semibold text-red-600">
-                    {t("button.delete", "حذف")}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </main>
   );
