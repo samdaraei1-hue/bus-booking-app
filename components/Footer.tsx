@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useT } from "@/lib/translations/useT.client";
+import { useViewer } from "@/lib/auth/useViewer.client";
 
 export default function Footer({ lang }: { lang: string }) {
   const t = useT(lang);
+  const { viewer, loading } = useViewer();
 
   return (
     <footer className="mt-24 bg-zinc-950 text-zinc-300">
@@ -31,16 +33,26 @@ export default function Footer({ lang }: { lang: string }) {
                 {t("navbar.travels", "سفرها")}
               </Link>
             </li>
-            <li>
-              <Link className="transition hover:text-white" href={`/${lang}/profile`}>
-                {t("navbar.profile", "پروفایل")}
-              </Link>
-            </li>
-            <li>
-              <Link className="transition hover:text-white" href={`/${lang}/login`}>
-                {t("navbar.login", "ورود")}
-              </Link>
-            </li>
+            {!loading && viewer ? (
+              <>
+                <li>
+                  <Link className="transition hover:text-white" href={`/${lang}/profile`}>
+                    {t("navbar.profile", "پروفایل")}
+                  </Link>
+                </li>
+                <li>
+                  <Link className="transition hover:text-white" href={`/${lang}/my-bookings`}>
+                    {t("navbar.my_bookings", "رزروهای من")}
+                  </Link>
+                </li>
+              </>
+            ) : (
+              <li>
+                <Link className="transition hover:text-white" href={`/${lang}/login`}>
+                  {t("navbar.login", "ورود")}
+                </Link>
+              </li>
+            )}
           </ul>
         </div>
 

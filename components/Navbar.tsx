@@ -12,6 +12,7 @@ export default function Navbar({ lang }: { lang: string }) {
   const t = useT(lang);
   const { viewer, loading, dashboardAllowed } = useViewer();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const switchLangHref = (to: string) => {
     const parts = pathname.split("/").filter(Boolean);
@@ -46,7 +47,19 @@ export default function Navbar({ lang }: { lang: string }) {
           <span>{t("navbar.brand", "Energy Travel")}</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 md:flex">
+        {/* Mobile Menu Button */}
+        <button 
+          className="block md:hidden p-2 text-zinc-700" 
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+        >
+          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {isMenuOpen 
+              ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />}
+          </svg>
+        </button>
+
+        <nav className={`${isMenuOpen ? "flex" : "hidden"} absolute left-0 top-full w-full flex-col items-start gap-4 border-b bg-white p-6 shadow-lg md:static md:flex md:w-auto md:flex-row md:items-center md:gap-6 md:border-none md:p-0 md:shadow-none`}>
           <Link
             href={`/${lang}/travels`}
             className="font-medium text-zinc-700 transition hover:text-rose-600"
