@@ -52,9 +52,20 @@ export default function DashboardTravelsPage() {
 
   const deleteTravel = async (id: string) => {
     if (!confirm(t("confirm.delete", "آیا مطمئن هستید؟"))) return;
+
+    // 1. ابتدا رکوردهای وابسته را حذف می‌کنیم تا خطای Foreign Key ایجاد نشود
+    await supabase.from("travel_teams").delete().eq("travel_id", id);
+    await supabase.from("translations").delete().eq("entity_id", id).eq("namespace", "travel");
+
+    // 2. حالا خود سفر را حذف می‌کنیم
     const { error } = await supabase.from("travels").delete().eq("id", id);
-    if (error) console.error(error);
-    else void fetchTravels();
+
+    if (error) {
+      console.error(error);
+      alert(t("error.delete_failed", "خطا در حذف: ") + error.message);
+    } else {
+      void fetchTravels();
+    }
   };
 
   if (loading) return <div className="p-6">Loading...</div>;

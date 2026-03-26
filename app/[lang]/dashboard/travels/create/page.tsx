@@ -21,6 +21,9 @@ export default function CreateTravelPage() {
 
   const [users, setUsers] = useState<any[]>([]);
 
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const [name, setName] = useState("");
   const [type, setType] = useState<"travel" | "event">("travel");
   const [origin, setOrigin] = useState("");
@@ -107,6 +110,13 @@ export default function CreateTravelPage() {
   };
 
   const saveTravel = async () => {
+    if (!name || !origin || !departure_at) {
+      setErrorMsg(t("error.missing_fields", "Please fill in the required fields (Name, Origin, Departure)"));
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg(null);
 
     const image_url = await uploadImage();
 
@@ -117,9 +127,9 @@ export default function CreateTravelPage() {
         type,
         origin,
         destination: isEvent ? null : destination,
-        departure_at,
-        return_at,
-        price,
+        departure_at: departure_at || null,
+        return_at: return_at || null,
+        price: price ? parseFloat(price) : 0,
         description,
         image_url
       })
@@ -128,6 +138,8 @@ export default function CreateTravelPage() {
 
     if (error) {
       console.error(error);
+      setErrorMsg(error.message);
+      setLoading(false);
       return;
     }
 
@@ -154,11 +166,16 @@ export default function CreateTravelPage() {
     });
 
     if(team.length>0){
-      await supabase.from("travel_teams").insert(team);
+      const { error: teamError } = await supabase.from("travel_teams").insert(team);
+      if (teamError) {
+        console.error(teamError);
+        setErrorMsg("Travel created, but failed to save team: " + teamError.message);
+        setLoading(false);
+        return;
+      }
     }
 
     router.push(`/${lang}/dashboard/travels`);
-
   };
 
   return (
@@ -440,10 +457,17 @@ export default function CreateTravelPage() {
 
           <button
             onClick={saveTravel}
-            className="w-full bg-black text-white py-3 rounded-xl hover:bg-zinc-800 transition"
+            disabled={loading}
+            className="w-full bg-black text-white py-3 rounded-xl hover:bg-zinc-800 transition disabled:opacity-50"
           >
-            {t("common.save","Save")}
+            {loading ? t("common.saving", "Saving...") : t("common.save", "Save")}
           </button>
+
+          {errorMsg && (
+            <div className="text-sm text-red-600 mt-2 bg-red-50 p-4 rounded-2xl border border-red-100 text-center">
+              {errorMsg}
+            </div>
+          )}
 
         </div>
 
