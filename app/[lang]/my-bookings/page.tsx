@@ -203,7 +203,7 @@ export default function MyBookingsPage() {
             )}&reservation=${encodeURIComponent(group.id)}&view=1`
           )
         }
-        className="rounded-2xl bg-zinc-100 px-5 py-3 text-sm font-semibold transition hover:bg-zinc-200"
+        className="w-full rounded-2xl bg-zinc-100 px-5 py-3 text-sm font-semibold transition hover:bg-zinc-200 sm:w-auto"
       >
         {t("page.my_bookings.view_seat_map", "View Seat Location")}
       </button>,
@@ -220,7 +220,7 @@ export default function MyBookingsPage() {
               )}`
             )
           }
-          className="rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-700"
+          className="w-full rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 sm:w-auto"
         >
           {t("page.my_bookings.continue_reservation", "Continue Reservation")}
         </button>
@@ -239,7 +239,7 @@ export default function MyBookingsPage() {
               )}&travel=${encodeURIComponent(group.travel_id)}`
             )
           }
-          className="rounded-2xl bg-amber-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-700"
+          className="w-full rounded-2xl bg-amber-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-700 sm:w-auto"
         >
           {t("page.my_bookings.continue_payment", "Continue Payment")}
         </button>
@@ -258,7 +258,7 @@ export default function MyBookingsPage() {
               )}&reservation=${encodeURIComponent(group.id)}&change=1`
             )
           }
-          className="rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-700"
+          className="w-full rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-700 sm:w-auto"
         >
           {t("page.my_bookings.change_seat", "Change Seat")}
         </button>
@@ -269,7 +269,7 @@ export default function MyBookingsPage() {
       <button
         key="view-item"
         onClick={() => router.push(`/${lang}/travels/${group.travel_id}`)}
-        className="rounded-2xl bg-zinc-100 px-5 py-3 text-sm font-semibold transition hover:bg-zinc-200"
+        className="w-full rounded-2xl bg-zinc-100 px-5 py-3 text-sm font-semibold transition hover:bg-zinc-200 sm:w-auto"
       >
         {t("common.view", "View")}
       </button>
@@ -394,7 +394,7 @@ export default function MyBookingsPage() {
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap gap-2">
+                  <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                     {renderActions(group)}
                   </div>
                 </div>
