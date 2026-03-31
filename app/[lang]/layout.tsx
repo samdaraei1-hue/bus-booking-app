@@ -19,7 +19,7 @@ export default async function LangLayout({
       <div className="min-h-dvh bg-zinc-50 text-zinc-900">
         <DocumentDirection lang={lang} />
         <Navbar lang={lang} />
-        <main>{children}</main>
+        <main className="pb-8">{children}</main>
         <Footer lang={lang} />
       </div>
     </TranslationsProvider>

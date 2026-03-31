@@ -52,20 +52,25 @@ export default function DashboardUsersPage() {
     setMsg(null);
 
     try {
-      const [{ data: userRows, error: userError }, { data: roleRows, error: roleError }] =
-        await Promise.all([
-          supabase
-            .from("users")
-            .select("id, email, name, phone, role, profile_completed")
-            .order("email", { ascending: true }),
-          supabase.from("user_roles").select("user_id, role"),
-        ]);
+      const [
+        { data: userRows, error: userError },
+        { data: roleRows, error: roleError },
+      ] = await Promise.all([
+        supabase
+          .from("users")
+          .select("id, email, name, phone, role, profile_completed")
+          .order("email", { ascending: true }),
+        supabase.from("user_roles").select("user_id, role"),
+      ]);
 
       if (userError) throw userError;
       if (roleError) throw roleError;
 
       const systemRoles = new Map(
-        ((roleRows ?? []) as SystemRoleRow[]).map((row) => [row.user_id, row.role ?? "user"])
+        ((roleRows ?? []) as SystemRoleRow[]).map((row) => [
+          row.user_id,
+          row.role ?? "user",
+        ])
       );
 
       const nextUsers = ((userRows ?? []) as UserRow[]).map((user) => ({
@@ -167,54 +172,54 @@ export default function DashboardUsersPage() {
   }, [users]);
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-10">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <main className="page-shell">
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold">
-            {t("page.dashboard.users", "مدیریت کاربران")}
+          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-950 sm:text-3xl">
+            {t("page.dashboard.users", "Manage Users")}
           </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            {t("page.dashboard.users_desc", "نقش‌ها و پروفایل کاربران")}
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+            {t("page.dashboard.users_desc", "Roles and user profiles")}
           </p>
         </div>
 
-        <div className="w-full max-w-sm">
+        <div className="w-full lg:max-w-sm">
           <label
             htmlFor="user-search"
             className="block text-sm font-semibold text-zinc-700"
           >
-            {t("page.admin.translations.search", "جستجو")}
+            {t("page.admin.translations.search", "Search")}
           </label>
           <input
             id="user-search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="email / name / role"
-            className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+            className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
           />
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-4">
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-200">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="page-card p-5">
           <div className="text-sm text-zinc-500">Users</div>
           <div className="mt-2 text-3xl font-extrabold text-zinc-900">
             {summary.total}
           </div>
         </div>
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-200">
+        <div className="page-card p-5">
           <div className="text-sm text-zinc-500">Admins</div>
           <div className="mt-2 text-3xl font-extrabold text-zinc-900">
             {summary.admins}
           </div>
         </div>
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-200">
+        <div className="page-card p-5">
           <div className="text-sm text-zinc-500">Leaders</div>
           <div className="mt-2 text-3xl font-extrabold text-zinc-900">
             {summary.leaders}
           </div>
         </div>
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-200">
+        <div className="page-card p-5">
           <div className="text-sm text-zinc-500">Completed Profiles</div>
           <div className="mt-2 text-3xl font-extrabold text-zinc-900">
             {summary.completed}
@@ -222,75 +227,81 @@ export default function DashboardUsersPage() {
         </div>
       </div>
 
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
+      <div className="page-card p-4 sm:p-6">
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={index}
-                className="h-14 animate-pulse rounded-2xl bg-zinc-100"
+                className="h-16 animate-pulse rounded-2xl bg-zinc-100"
               />
             ))}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-zinc-500">
-                  <th className="px-3 py-3 text-start">User</th>
-                  <th className="px-3 py-3 text-start">Phone</th>
-                  <th className="px-3 py-3 text-start">
-                    {t("table.business_role", "نقش تجاری")}
-                  </th>
-                  <th className="px-3 py-3 text-start">
-                    {t("table.system_role", "نقش سیستمی")}
-                  </th>
-                  <th className="px-3 py-3 text-start">Profile</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b border-zinc-100">
-                    <td className="px-3 py-4">
+          <>
+            <div className="space-y-4 lg:hidden">
+              {filteredUsers.map((user) => (
+                <div
+                  key={user.id}
+                  className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
                       <div className="font-semibold text-zinc-900">
                         {user.name || "Unnamed user"}
                       </div>
-                      <div className="mt-1 text-zinc-500">
+                      <div className="mt-1 break-all text-sm text-zinc-500">
                         {user.email || "No email"}
                       </div>
-                    </td>
-                    <td className="px-3 py-4 text-zinc-700">
-                      {user.phone || "—"}
-                    </td>
-                    <td className="px-3 py-4">
+                      <div className="mt-1 text-sm text-zinc-500">
+                        {user.phone || "-"}
+                      </div>
+                    </div>
+                    <span
+                      className={[
+                        "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
+                        user.profileCompleted
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-amber-100 text-amber-700",
+                      ].join(" ")}
+                    >
+                      {user.profileCompleted ? "Complete" : "Incomplete"}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-3">
+                    <div>
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                        {t("table.business_role", "Business Role")}
+                      </div>
                       <select
                         value={user.businessRole ?? ""}
                         onChange={(event) =>
-                          void updateRole(
-                            user.id,
-                            event.target.value,
-                            "business"
-                          )
+                          void updateRole(user.id, event.target.value, "business")
                         }
                         disabled={savingKey === `${user.id}:business`}
-                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2"
+                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm"
                         title="Business role"
                       >
                         {BUSINESS_ROLE_OPTIONS.map((role) => (
                           <option key={role || "none"} value={role}>
-                            {role || t("role.none", "هیچ")}
+                            {role || t("role.none", "None")}
                           </option>
                         ))}
                       </select>
-                    </td>
-                    <td className="px-3 py-4">
+                    </div>
+
+                    <div>
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                        {t("table.system_role", "System Role")}
+                      </div>
                       <select
                         value={user.systemRole ?? "user"}
                         onChange={(event) =>
                           void updateRole(user.id, event.target.value, "system")
                         }
                         disabled={savingKey === `${user.id}:system`}
-                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2"
+                        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm"
                         title="System role"
                       >
                         {SYSTEM_ROLE_OPTIONS.map((role) => (
@@ -299,30 +310,99 @@ export default function DashboardUsersPage() {
                           </option>
                         ))}
                       </select>
-                    </td>
-                    <td className="px-3 py-4">
-                      <span
-                        className={[
-                          "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
-                          user.profileCompleted
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-amber-100 text-amber-700",
-                        ].join(" ")}
-                      >
-                        {user.profileCompleted ? "Complete" : "Incomplete"}
-                      </span>
-                    </td>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-zinc-500">
+                    <th className="px-3 py-3 text-start">User</th>
+                    <th className="px-3 py-3 text-start">Phone</th>
+                    <th className="px-3 py-3 text-start">
+                      {t("table.business_role", "Business Role")}
+                    </th>
+                    <th className="px-3 py-3 text-start">
+                      {t("table.system_role", "System Role")}
+                    </th>
+                    <th className="px-3 py-3 text-start">Profile</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((user) => (
+                    <tr key={user.id} className="border-b border-zinc-100">
+                      <td className="px-3 py-4">
+                        <div className="font-semibold text-zinc-900">
+                          {user.name || "Unnamed user"}
+                        </div>
+                        <div className="mt-1 text-zinc-500">
+                          {user.email || "No email"}
+                        </div>
+                      </td>
+                      <td className="px-3 py-4 text-zinc-700">
+                        {user.phone || "-"}
+                      </td>
+                      <td className="px-3 py-4">
+                        <select
+                          value={user.businessRole ?? ""}
+                          onChange={(event) =>
+                            void updateRole(user.id, event.target.value, "business")
+                          }
+                          disabled={savingKey === `${user.id}:business`}
+                          className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2"
+                          title="Business role"
+                        >
+                          {BUSINESS_ROLE_OPTIONS.map((role) => (
+                            <option key={role || "none"} value={role}>
+                              {role || t("role.none", "None")}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-4">
+                        <select
+                          value={user.systemRole ?? "user"}
+                          onChange={(event) =>
+                            void updateRole(user.id, event.target.value, "system")
+                          }
+                          disabled={savingKey === `${user.id}:system`}
+                          className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2"
+                          title="System role"
+                        >
+                          {SYSTEM_ROLE_OPTIONS.map((role) => (
+                            <option key={role} value={role}>
+                              {role}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-4">
+                        <span
+                          className={[
+                            "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
+                            user.profileCompleted
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-amber-100 text-amber-700",
+                          ].join(" ")}
+                        >
+                          {user.profileCompleted ? "Complete" : "Incomplete"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             {!filteredUsers.length ? (
               <div className="py-8 text-center text-sm text-zinc-500">
                 No users found.
               </div>
             ) : null}
-          </div>
+          </>
         )}
 
         {msg ? <div className="mt-4 text-sm text-zinc-700">{msg}</div> : null}

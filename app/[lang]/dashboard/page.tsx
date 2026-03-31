@@ -23,39 +23,41 @@ export default function DashboardPage() {
   useEffect(() => {
     let mounted = true;
 
-  (async () => {
-    try {
+    (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const user = session?.user ?? null;
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user ?? null;
+        if (!mounted) return;
 
-      if (!mounted) return;
+        if (!user) {
+          router.replace(`/${lang}/login`);
+          return;
+        }
 
-      if (!user) {
-        router.replace(`/${lang}/login`);
-        return;
+        const [{ data: userRow }, { data: roleRow }] = await Promise.all([
+          supabase.from("users").select("role").eq("id", user.id).maybeSingle(),
+          supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        ]);
+
+        if (!mounted) return;
+
+        setViewer({
+          businessRole: userRow?.role ?? null,
+          systemRole: roleRow?.role ?? "user",
+        });
+      } catch (err) {
+        console.error("Dashboard error:", err);
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      const [{ data: userRow }, { data: roleRow }] = await Promise.all([
-        supabase.from("users").select("role").eq("id", user.id).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
-      ]);
-
-      if (!mounted) return;
-
-      setViewer({
-        businessRole: userRow?.role ?? null,
-        systemRole: roleRow?.role ?? "user",
-      });
-
-    } catch (err) {
-      console.error("Dashboard error:", err);
-    } finally {
-      if (mounted) setLoading(false);
-    }
-  })();
+    })();
 
     return () => {
       mounted = false;
@@ -76,7 +78,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-6xl px-6 py-10">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="h-56 animate-pulse rounded-3xl bg-zinc-100" />
       </main>
     );
@@ -84,7 +86,7 @@ export default function DashboardPage() {
 
   if (!allowed) {
     return (
-      <main className="mx-auto max-w-5xl px-6 py-12">
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
         <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
           <h1 className="text-2xl font-bold text-red-600">دسترسی غیرمجاز</h1>
           <p className="mt-2 text-sm text-zinc-600">
@@ -95,45 +97,54 @@ export default function DashboardPage() {
     );
   }
 
+  const cardClass =
+    "rounded-3xl bg-white p-5 text-start shadow-sm ring-1 ring-zinc-200 transition hover:shadow-lg sm:p-6";
+
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold">
-          {t("page.dashboard.title", "داشبورد")}
+        <h1 className="text-2xl font-extrabold sm:text-3xl">
+          {t("page.dashboard.title", "Dashboard")}
         </h1>
         <p className="mt-2 text-sm text-zinc-600">
-          {t("page.dashboard.subtitle", "مدیریت حرفه‌ای سیستم رزرو")}
+          {t("page.dashboard.subtitle", "Professional booking system management")}
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
         <button
           onClick={() => router.push(`/${lang}/dashboard/travels`)}
-          className="rounded-3xl bg-white p-6 text-start shadow-sm ring-1 ring-zinc-200 transition hover:shadow-lg"
+          className={cardClass}
         >
-          <div className="text-lg font-bold">{t("page.dashboard.travels", "مدیریت سفرها")}</div>
+          <div className="text-lg font-bold">
+            {t("page.dashboard.travels", "Manage Trips")}
+          </div>
           <div className="mt-2 text-sm text-zinc-600">
-            {t("page.dashboard.travels_desc", "ایجاد، ویرایش و مشاهده سفرها")}
+            {t("page.dashboard.travels_desc", "Create, edit, and view trips")}
           </div>
         </button>
 
         <button
           onClick={() => router.push(`/${lang}/dashboard/reservations`)}
-          className="rounded-3xl bg-white p-6 text-start shadow-sm ring-1 ring-zinc-200 transition hover:shadow-lg"
+          className={cardClass}
         >
-          <div className="text-lg font-bold">{t("page.dashboard.reservations", "مدیریت رزروها")}</div>
+          <div className="text-lg font-bold">
+            {t("page.dashboard.reservations", "Manage Reservations")}
+          </div>
           <div className="mt-2 text-sm text-zinc-600">
-            {t("page.dashboard.reservations_desc", "لیست رزروها، وضعیت‌ها و صندلی‌ها")}
+            {t("page.dashboard.reservations_desc", "Bookings, statuses, and seats")}
           </div>
         </button>
 
         <button
           onClick={() => router.push(`/${lang}/dashboard/reports`)}
-          className="rounded-3xl bg-white p-6 text-start shadow-sm ring-1 ring-zinc-200 transition hover:shadow-lg"
+          className={cardClass}
         >
-          <div className="text-lg font-bold">{t("page.dashboard.reports", "گزارش‌ها")}</div>
+          <div className="text-lg font-bold">
+            {t("page.dashboard.reports", "Reports")}
+          </div>
           <div className="mt-2 text-sm text-zinc-600">
-            {t("page.dashboard.reports_desc", "ظرفیت، رزروشده و خالی")}
+            {t("page.dashboard.reports_desc", "Capacity, booked, and free seats")}
           </div>
         </button>
 
@@ -141,21 +152,25 @@ export default function DashboardPage() {
           <>
             <button
               onClick={() => router.push(`/${lang}/dashboard/users`)}
-              className="rounded-3xl bg-white p-6 text-start shadow-sm ring-1 ring-zinc-200 transition hover:shadow-lg"
+              className={cardClass}
             >
-              <div className="text-lg font-bold">{t("page.dashboard.users", "مدیریت کاربران")}</div>
+              <div className="text-lg font-bold">
+                {t("page.dashboard.users", "Manage Users")}
+              </div>
               <div className="mt-2 text-sm text-zinc-600">
-                {t("page.dashboard.users_desc", "نقش‌ها و پروفایل کاربران")}
+                {t("page.dashboard.users_desc", "Roles and user profiles")}
               </div>
             </button>
 
             <button
               onClick={() => router.push(`/${lang}/dashboard/translations`)}
-              className="rounded-3xl bg-white p-6 text-start shadow-sm ring-1 ring-zinc-200 transition hover:shadow-lg"
+              className={cardClass}
             >
-              <div className="text-lg font-bold">{t("page.dashboard.translations", "مدیریت ترجمه‌ها")}</div>
+              <div className="text-lg font-bold">
+                {t("page.dashboard.translations", "Manage Translations")}
+              </div>
               <div className="mt-2 text-sm text-zinc-600">
-                {t("page.dashboard.translations_desc", "متن‌های چندزبانه‌ی سایت")}
+                {t("page.dashboard.translations_desc", "Multilingual site texts")}
               </div>
             </button>
           </>

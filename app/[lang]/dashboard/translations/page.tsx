@@ -25,7 +25,6 @@ export default function DashboardTranslationsPage() {
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<TranslationRow[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [namespaceInput, setNamespaceInput] = useState("");
   const [keyInput, setKeyInput] = useState("");
   const [entityIdInput, setEntityIdInput] = useState("");
@@ -141,24 +140,24 @@ export default function DashboardTranslationsPage() {
   };
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-10">
+    <main className="page-shell">
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold">
-          {t("page.dashboard.translations", "مدیریت ترجمه‌ها")}
+        <h1 className="text-2xl font-extrabold tracking-tight text-zinc-950 sm:text-3xl">
+          {t("page.dashboard.translations", "Manage Translations")}
         </h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          {t("page.dashboard.translations_desc", "متن‌های چندزبانه‌ی سایت")}
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+          {t("page.dashboard.translations_desc", "Multilingual site texts")}
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.25fr_400px]">
-        <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-          <div className="mb-4 grid gap-4 md:grid-cols-[220px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+        <section className="page-card p-4 sm:p-6">
+          <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-[220px_1fr]">
             <select
               value={langFilter}
               onChange={(event) => setLangFilter(event.target.value)}
               title="Translation language"
-              className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+              className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
             >
               {LANGS.map((entry) => (
                 <option key={entry.code} value={entry.code}>
@@ -171,7 +170,7 @@ export default function DashboardTranslationsPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="namespace / key / value / entity id"
-              className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+              className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
             />
           </div>
 
@@ -180,69 +179,75 @@ export default function DashboardTranslationsPage() {
               {Array.from({ length: 8 }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-12 animate-pulse rounded-2xl bg-zinc-100"
+                  className="h-20 animate-pulse rounded-2xl bg-zinc-100"
                 />
               ))}
             </div>
+          ) : filtered.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-zinc-200 p-8 text-center text-sm text-zinc-500">
+              No translations found.
+            </div>
           ) : (
-            <div className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200">
+            <div className="space-y-3">
               {filtered.map((item) => (
                 <div
                   key={`${item.namespace}.${item.key}.${item.entity_id ?? "base"}`}
-                  className="flex items-start justify-between gap-4 p-4"
+                  className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4"
                 >
-                  <div className="min-w-0">
-                    <div className="text-xs text-zinc-500">{item.namespace}</div>
-                    <div className="text-sm font-bold text-zinc-900">{item.key}</div>
-                    {item.entity_id ? (
-                      <div className="mt-1 text-xs text-zinc-400">
-                        entity: {item.entity_id}
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        {item.namespace}
                       </div>
-                    ) : null}
-                    <div className="mt-2 break-words text-sm text-zinc-600">
-                      {item.value}
+                      <div className="mt-1 break-all text-sm font-bold text-zinc-900">
+                        {item.key}
+                      </div>
+                      {item.entity_id ? (
+                        <div className="mt-1 break-all text-xs text-zinc-400">
+                          entity: {item.entity_id}
+                        </div>
+                      ) : null}
+                      <div className="mt-3 break-words text-sm leading-6 text-zinc-600">
+                        {item.value}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditNamespace(item.namespace);
-                        setEditKey(item.key);
-                        setEditEntityId(item.entity_id ?? null);
-                        setNamespaceInput(item.namespace);
-                        setKeyInput(item.key);
-                        setEntityIdInput(item.entity_id ?? "");
-                        setValueInput(item.value);
-                      }}
-                      className="rounded-xl bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-200"
-                    >
-                      {t("page.admin.translations.edit", "ویرایش")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void remove(item.namespace, item.key, item.entity_id)}
-                      className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-rose-700"
-                    >
-                      {t("page.admin.translations.delete", "حذف")}
-                    </button>
+                    <div className="flex shrink-0 gap-2 self-start">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditNamespace(item.namespace);
+                          setEditKey(item.key);
+                          setEditEntityId(item.entity_id ?? null);
+                          setNamespaceInput(item.namespace);
+                          setKeyInput(item.key);
+                          setEntityIdInput(item.entity_id ?? "");
+                          setValueInput(item.value);
+                        }}
+                        className="rounded-xl bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-200"
+                      >
+                        {t("page.admin.translations.edit", "Edit")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void remove(item.namespace, item.key, item.entity_id)}
+                        className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-rose-700"
+                      >
+                        {t("page.admin.translations.delete", "Delete")}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
-
-              {!filtered.length ? (
-                <div className="p-6 text-sm text-zinc-500">No translations found.</div>
-              ) : null}
             </div>
           )}
         </section>
 
-        <aside className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
+        <aside className="page-card p-5 sm:p-6 xl:sticky xl:top-24 xl:h-fit">
           <h2 className="text-lg font-extrabold text-zinc-900">
             {editKey
-              ? t("page.admin.translations.edit", "ویرایش")
-              : t("page.admin.translations.create", "ایجاد")}
+              ? t("page.admin.translations.edit", "Edit")
+              : t("page.admin.translations.create", "Create")}
           </h2>
 
           <div className="mt-5 space-y-4">
@@ -257,7 +262,7 @@ export default function DashboardTranslationsPage() {
                 id="translation-lang"
                 value={langFilter}
                 onChange={(event) => setLangFilter(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
               >
                 {LANGS.map((entry) => (
                   <option key={entry.code} value={entry.code}>
@@ -281,7 +286,7 @@ export default function DashboardTranslationsPage() {
                 id="namespace"
                 value={namespaceInput}
                 onChange={(event) => setNamespaceInput(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
                 placeholder="page.home"
                 disabled={!!editNamespace}
               />
@@ -298,7 +303,7 @@ export default function DashboardTranslationsPage() {
                 id="translation-key"
                 value={keyInput}
                 onChange={(event) => setKeyInput(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
                 placeholder="hero.title"
                 disabled={!!editKey}
               />
@@ -315,7 +320,7 @@ export default function DashboardTranslationsPage() {
                 id="entity-id"
                 value={entityIdInput}
                 onChange={(event) => setEntityIdInput(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
                 placeholder="optional for travel-specific translation"
                 disabled={editEntityId !== null}
               />
@@ -332,7 +337,7 @@ export default function DashboardTranslationsPage() {
                 id="translation-value"
                 value={valueInput}
                 onChange={(event) => setValueInput(event.target.value)}
-                className="mt-2 h-32 w-full resize-none rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                className="mt-2 h-32 w-full resize-none rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
                 placeholder="Translation text..."
               />
             </div>
@@ -342,7 +347,7 @@ export default function DashboardTranslationsPage() {
               onClick={() => void upsert()}
               className="w-full rounded-2xl bg-zinc-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-zinc-800"
             >
-              {t("common.save", "ذخیره")}
+              {t("common.save", "Save")}
             </button>
 
             <button
@@ -350,7 +355,7 @@ export default function DashboardTranslationsPage() {
               onClick={resetForm}
               className="w-full rounded-2xl bg-zinc-100 px-6 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
             >
-              {t("page.admin.translations.clear_form", "پاک کردن فرم")}
+              {t("page.admin.translations.clear_form", "Clear Form")}
             </button>
 
             {msg ? <div className="text-sm text-zinc-700">{msg}</div> : null}

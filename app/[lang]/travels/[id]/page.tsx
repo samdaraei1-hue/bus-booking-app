@@ -85,7 +85,7 @@ export default function TravelDetailPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-5xl px-6 py-12">
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
         <div className="h-96 animate-pulse rounded-3xl bg-zinc-100" />
       </main>
     );
@@ -93,17 +93,18 @@ export default function TravelDetailPage() {
 
   if (!localizedTravel) {
     return (
-      <main className="mx-auto max-w-5xl px-6 py-12">
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
         <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
-          <h1 className="text-2xl font-bold">{t("page.travel_detail.not_found")}</h1>
+          <h1 className="text-2xl font-bold">
+            {t("page.travel_detail.not_found")}
+          </h1>
           {msg ? <p className="mt-2 text-sm text-zinc-600">{msg}</p> : null}
         </div>
       </main>
     );
   }
 
-  const locale =
-    lang === "fa" ? "de-DE"  : lang === "de" ? "de-DE" : "en-US";
+  const locale = lang === "fa" ? "de-DE" : lang === "de" ? "de-DE" : "en-US";
   const imageSrc = localizedTravel.image_url || "/images/travel.jpg";
   const itemType =
     localizedTravel.type === "event"
@@ -115,39 +116,39 @@ export default function TravelDetailPage() {
       : `${localizedTravel.origin} → ${localizedTravel.destination}`;
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
-      <section className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+    <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
+      <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:gap-8">
         <div className="overflow-hidden rounded-[32px] bg-white shadow-sm ring-1 ring-zinc-200">
-          <div className="relative h-[320px]">
+          <div className="relative h-[240px] sm:h-[320px]">
             <img
               src={imageSrc}
               alt={localizedTravel.name}
               className="h-full w-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
-            <div className="absolute bottom-6 right-6 left-6 text-white">
+            <div className="absolute bottom-6 left-6 right-6 text-white">
               <div className="mb-2 inline-block rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
                 {itemType}
               </div>
-              <h1 className="text-3xl font-extrabold">{localizedTravel.name}</h1>
-              <p className="mt-2 text-sm text-white/90">
-                {locationText}
-              </p>
+              <h1 className="text-2xl font-extrabold sm:text-3xl">
+                {localizedTravel.name}
+              </h1>
+              <p className="mt-2 text-sm text-white/90">{locationText}</p>
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-5 sm:p-6">
             <h2 className="mb-3 text-lg font-bold text-zinc-900">
               {t("page.travel_detail.description_title")}
             </h2>
-            <p className="whitespace-pre-line leading-8 text-zinc-700">
+            <p className="whitespace-pre-line leading-7 text-zinc-700 sm:leading-8">
               {localizedTravel.description || "—"}
             </p>
           </div>
         </div>
 
-        <aside className="rounded-[32px] bg-white p-6 shadow-sm ring-1 ring-zinc-200">
-          <h2 className="text-2xl font-extrabold text-zinc-900">
+        <aside className="rounded-[32px] bg-white p-5 shadow-sm ring-1 ring-zinc-200 sm:p-6 lg:sticky lg:top-28 lg:self-start">
+          <h2 className="text-xl font-extrabold text-zinc-900 sm:text-2xl">
             {t("page.travel_detail.details_title")}
           </h2>
 
@@ -200,7 +201,7 @@ export default function TravelDetailPage() {
               <div className="text-xs text-rose-700">
                 {t("page.travel_detail.price")}
               </div>
-              <div className="mt-1 text-2xl font-extrabold text-rose-600">
+              <div className="mt-1 text-xl font-extrabold text-rose-600 sm:text-2xl">
                 €{localizedTravel.price}
               </div>
             </div>

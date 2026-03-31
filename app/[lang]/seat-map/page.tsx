@@ -9,6 +9,7 @@ import type { LayoutSeat, Travel } from "@/lib/types";
 import { isReservationActive } from "@/lib/reservations";
 import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
 import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
+import { canChangeSeatForReservation } from "@/lib/reservationPolicies";
 
 type ReservationItemRow = {
   layout_seat_id: string;
@@ -23,6 +24,15 @@ type SeatLockRow = {
   expires_at: string | null;
 };
 
+type EditableReservationGroup = {
+  id: string;
+  status: string;
+  travel_id: string;
+  travels: {
+    departure_at: string | null;
+  } | null;
+};
+
 const PENDING_SELECTION_KEY = "pending-seat-selection";
 
 export default function SeatMapPage() {
@@ -35,6 +45,7 @@ export default function SeatMapPage() {
   const travelId = sp.get("travel") ?? "";
   const reservationId = sp.get("reservation") ?? "";
   const isViewMode = sp.get("view") === "1";
+  const isChangeMode = sp.get("change") === "1";
   const pendingSelectionParam = sp.get("selected") ?? "";
 
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
@@ -42,6 +53,7 @@ export default function SeatMapPage() {
   const [seats, setSeats] = useState<LayoutSeat[]>([]);
   const [unavailableSeatIds, setUnavailableSeatIds] = useState<string[]>([]);
   const [travelTitle, setTravelTitle] = useState("");
+  const [seatLimit, setSeatLimit] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [gridSeed, setGridSeed] = useState("default");
@@ -102,6 +114,7 @@ export default function SeatMapPage() {
           { data: reservationRows, error: reservationsError },
           { data: lockRows, error: locksError },
           { data: selectedReservationRows, error: selectedReservationError },
+          { data: editableReservation, error: editableReservationError },
         ] = await Promise.all([
           supabase
             .from("layout_seats")
@@ -125,6 +138,22 @@ export default function SeatMapPage() {
                 .select("layout_seat_id")
                 .eq("reservation_group_id", reservationId)
             : Promise.resolve({ data: [], error: null }),
+          reservationId && isChangeMode
+            ? supabase
+                .from("reservation_groups")
+                .select(
+                  `
+                    id,
+                    status,
+                    travel_id,
+                    travels:travel_id (
+                      departure_at
+                    )
+                  `
+                )
+                .eq("id", reservationId)
+                .single()
+            : Promise.resolve({ data: null, error: null }),
         ]);
 
         if (!mounted) return;
@@ -162,7 +191,30 @@ export default function SeatMapPage() {
             (row) => row.layout_seat_id as string
           );
           setViewSeatIds(selectedIds);
+          if (isChangeMode) {
+            setSelectedSeatIds(selectedIds);
+            setSeatLimit(selectedIds.length);
+            setGridSeed(selectedIds.join(","));
+          }
           selectedIds.forEach((seatId) => blockedSeatIds.delete(seatId));
+        }
+
+        if (isChangeMode) {
+          const editableGroup = editableReservation as EditableReservationGroup | null;
+
+          if (editableReservationError || !editableGroup) {
+            setMsg("Seat change is not available for this reservation.");
+            return;
+          }
+
+          if (
+            !canChangeSeatForReservation(
+              editableGroup.status,
+              editableGroup.travels?.departure_at
+            )
+          ) {
+            setMsg("Seat change is not available for this reservation.");
+          }
         }
 
         setUnavailableSeatIds(Array.from(blockedSeatIds));
@@ -183,7 +235,7 @@ export default function SeatMapPage() {
   }, [lang, reservationId, router, t, travelId]);
 
   useEffect(() => {
-    if (isViewMode || !travelId) return;
+    if (isViewMode || isChangeMode || !travelId) return;
 
     const restorePendingSelection = () => {
       const idsFromQuery = pendingSelectionParam
@@ -217,10 +269,10 @@ export default function SeatMapPage() {
     };
 
     restorePendingSelection();
-  }, [isViewMode, pendingSelectionParam, travelId]);
+  }, [isChangeMode, isViewMode, pendingSelectionParam, travelId]);
 
   useEffect(() => {
-    if (isViewMode || !travelId) return;
+    if (isViewMode || isChangeMode || !travelId) return;
 
     try {
       if (selectedSeatIds.length) {
@@ -234,9 +286,13 @@ export default function SeatMapPage() {
     } catch (error) {
       console.error("Failed to persist pending seat selection", error);
     }
-  }, [isViewMode, selectedSeatIds, travelId]);
+  }, [isChangeMode, isViewMode, selectedSeatIds, travelId]);
 
-  const canContinue = !isViewMode && selectedSeatIds.length > 0 && !!travelId;
+  const canContinue =
+    !isViewMode &&
+    selectedSeatIds.length > 0 &&
+    !!travelId &&
+    (!seatLimit || selectedSeatIds.length === seatLimit);
   const selectedSeatsLabel = useMemo(
     () =>
       seats
@@ -298,6 +354,32 @@ export default function SeatMapPage() {
     );
   };
 
+  const changeSeats = async () => {
+    if (!reservationId) return;
+
+    setMsg(null);
+
+    const response = await fetchWithSupabaseAuth(
+      `/api/reservations/${encodeURIComponent(reservationId)}/change-seats`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          seatIds: selectedSeatIds,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      setMsg(
+        (response.data as { error?: string } | null)?.error ??
+          "Failed to change seats."
+      );
+      return;
+    }
+
+    router.push(`/${lang}/my-bookings`);
+  };
+
   if (loading) {
     return (
       <main className="mx-auto max-w-3xl px-6 py-10">
@@ -322,6 +404,12 @@ export default function SeatMapPage() {
               "This map is shown in read-only mode for your reservation."
             )}
           </p>
+        ) : isChangeMode ? (
+          <p className="mt-2 text-sm text-amber-700">
+            {seatLimit
+              ? `Select exactly ${seatLimit} seat(s) to replace your current selection.`
+              : "Select your new seats."}
+          </p>
         ) : null}
         {msg ? <p className="mt-2 text-sm text-rose-600">{msg}</p> : null}
       </div>
@@ -343,12 +431,19 @@ export default function SeatMapPage() {
           </div>
         </div>
 
+        <div className="mb-4 flex flex-wrap gap-2 text-xs font-semibold text-zinc-700">
+          <span className="rounded-full bg-zinc-100 px-3 py-1">Standard</span>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">VIP</span>
+          <span className="rounded-full bg-zinc-300 px-3 py-1 text-zinc-700">Locked</span>
+        </div>
+
         <SeatGrid
           key={isViewMode ? `view-${reservationId}` : `edit-${gridSeed}`}
           seats={seats}
           unavailableSeatIds={unavailableSeatIds}
           initialSelectedSeatIds={isViewMode ? viewSeatIds : selectedSeatIds}
           readOnly={isViewMode}
+          maxSelection={seatLimit ?? undefined}
           onChange={setSelectedSeatIds}
         />
 
@@ -376,7 +471,9 @@ export default function SeatMapPage() {
             <button
               type="button"
               disabled={!canContinue}
-              onClick={() => void createHeldReservation()}
+              onClick={() =>
+                void (isChangeMode ? changeSeats() : createHeldReservation())
+              }
               className={
                 "rounded-2xl px-6 py-3 text-sm font-bold text-white shadow-lg transition " +
                 (canContinue
@@ -384,7 +481,7 @@ export default function SeatMapPage() {
                   : "cursor-not-allowed bg-zinc-300")
               }
             >
-              {t("page.seat_map.continue_payment")}
+              {isChangeMode ? "Confirm Seat Change" : t("page.seat_map.continue_payment")}
             </button>
           ) : null}
         </div>

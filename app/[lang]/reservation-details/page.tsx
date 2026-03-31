@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
+import { getSeatLabelValue } from "@/lib/seatLabels";
 
 type ReservationItemForm = {
   id: string;
@@ -28,20 +29,6 @@ export default function ReservationDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-
-  const getSeatLabel = (
-    layoutSeat:
-      | { label?: string | null; seat_key?: string | null }
-      | Array<{ label?: string | null; seat_key?: string | null }>
-      | null
-      | undefined
-  ) => {
-    if (Array.isArray(layoutSeat)) {
-      return layoutSeat[0]?.label || layoutSeat[0]?.seat_key || "";
-    }
-
-    return layoutSeat?.label || layoutSeat?.seat_key || "";
-  };
 
   useEffect(() => {
     let mounted = true;
@@ -91,7 +78,7 @@ export default function ReservationDetailsPage() {
           rows.map((row) => ({
             id: row.id,
             layout_seat_id: row.layout_seat_id,
-            label: getSeatLabel(row.layout_seats),
+            label: getSeatLabelValue(row.layout_seats),
             passenger_name: row.passenger_name ?? "",
             passenger_email: row.passenger_email ?? "",
             passenger_phone: row.passenger_phone ?? "",

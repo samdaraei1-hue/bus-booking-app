@@ -8,12 +8,14 @@ export default function SeatGrid({
   unavailableSeatIds,
   initialSelectedSeatIds = [],
   readOnly = false,
+  maxSelection,
   onChange,
 }: {
   seats: LayoutSeat[];
   unavailableSeatIds: string[];
   initialSelectedSeatIds?: string[];
   readOnly?: boolean;
+  maxSelection?: number;
   onChange: (seatIds: string[]) => void;
 }) {
   const [selected, setSelected] = useState<string[]>(initialSelectedSeatIds);
@@ -48,6 +50,8 @@ export default function SeatGrid({
     setSelected((prev) =>
       prev.includes(seatId)
         ? prev.filter((item) => item !== seatId)
+        : maxSelection && prev.length >= maxSelection
+        ? prev
         : [...prev, seatId]
     );
   };
@@ -60,9 +64,11 @@ export default function SeatGrid({
       }}
     >
       {normalizedSeats.map((seat) => {
-        const isUnavailable =
-          unavailableSeatIds.includes(seat.id) || seat.is_selectable === false;
         const isSelected = selected.includes(seat.id);
+        const isUnavailable =
+          (unavailableSeatIds.includes(seat.id) || seat.is_selectable === false) &&
+          !isSelected;
+        const isVip = seat.seat_type === "vip";
 
         return (
           <button
@@ -73,11 +79,13 @@ export default function SeatGrid({
             className={[
               "rounded-2xl border px-4 py-4 text-sm font-bold transition",
               isUnavailable
-                ? "cursor-not-allowed border-zinc-200 bg-zinc-200 text-zinc-400"
+                ? "cursor-not-allowed border-zinc-300 bg-zinc-300 text-zinc-500"
                 : isSelected
                 ? readOnly
                   ? "border-sky-600 bg-sky-600 text-white shadow-lg"
                   : "border-rose-600 bg-rose-600 text-white shadow-lg"
+                : isVip
+                ? "border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200"
                 : "border-zinc-200 bg-zinc-100 text-zinc-800 hover:bg-zinc-200",
             ].join(" ")}
             style={{
@@ -89,7 +97,11 @@ export default function SeatGrid({
           >
             <div>{seat.label}</div>
             <div className="mt-1 text-[11px] font-medium opacity-80">
-              {seat.seat_key}
+              {isUnavailable && seat.is_selectable === false
+                ? "Locked"
+                : isVip
+                ? "VIP"
+                : seat.seat_key}
             </div>
           </button>
         );

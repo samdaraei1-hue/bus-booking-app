@@ -73,7 +73,7 @@ export default function TravelsPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-5xl px-6 py-12">
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
         <div className="h-96 animate-pulse rounded-3xl bg-zinc-100" />
       </main>
     );
@@ -81,7 +81,7 @@ export default function TravelsPage() {
 
   if (msg) {
     return (
-      <main className="mx-auto max-w-5xl px-6 py-12">
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
         <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
           <h1 className="text-2xl font-bold">{t("error")}</h1>
           <p className="mt-2 text-sm text-zinc-600">{msg}</p>
@@ -91,9 +91,9 @@ export default function TravelsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
+    <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-zinc-900">
+        <h1 className="text-2xl font-bold text-zinc-900 sm:text-3xl">
           {t("page.travels.title", "Trips & Events")}
         </h1>
         {/* <p className="mt-2 text-zinc-600">{t("page.travels.description") || "Find and book your next adventure"}</p> */}
@@ -106,7 +106,7 @@ export default function TravelsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {localizedTravels.map((travel) => (
             <TravelCard key={travel.id} travel={travel} lang={lang} />
           ))}

@@ -6,6 +6,13 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
+import {
+  getReservationStatusLabel,
+  getReservationStatusTone,
+  summarizeReservationStatuses,
+} from "@/lib/reservationPresentation";
+import { getSeatLabelValue } from "@/lib/seatLabels";
+import { canChangeSeatForReservation } from "@/lib/reservationPolicies";
 
 type Travel = {
   id: string;
@@ -18,14 +25,23 @@ type Travel = {
   description?: string;
 };
 
+type BookingSeat = {
+  id: string;
+  label: string;
+  status: string;
+};
+
 type BookingRow = {
   id: string;
   status: string;
   travel_id: string;
   reservation_items: Array<{
-    layout_seats: {
-      label: string;
-    }[] | null;
+    id: string;
+    status: string;
+    layout_seats:
+      | { label?: string | null; seat_key?: string | null }
+      | Array<{ label?: string | null; seat_key?: string | null }>
+      | null;
   }>;
   travels: Travel;
 };
@@ -38,7 +54,7 @@ type BookingCard = {
   destination: string;
   departure_at: string;
   return_at: string;
-  seats: string[];
+  seats: BookingSeat[];
   status: string;
   isPast: boolean;
 };
@@ -51,22 +67,6 @@ function formatDate(value: string, lang: string) {
   return date.toLocaleString(
     lang === "fa" ? "de-DE" : lang === "de" ? "de-DE" : "en-US"
   );
-}
-
-function getStatusTone(status: string) {
-  switch (status) {
-    case "paid":
-      return "bg-emerald-100 text-emerald-700";
-    case "awaiting_payment":
-      return "bg-amber-100 text-amber-700";
-    case "held":
-      return "bg-sky-100 text-sky-700";
-    case "cancelled":
-    case "expired":
-      return "bg-zinc-200 text-zinc-700";
-    default:
-      return "bg-zinc-100 text-zinc-700";
-  }
 }
 
 export default function MyBookingsPage() {
@@ -104,8 +104,11 @@ export default function MyBookingsPage() {
               status,
               travel_id,
               reservation_items (
+                id,
+                status,
                 layout_seats:layout_seat_id (
-                  label
+                  label,
+                  seat_key
                 )
               ),
               travels:travel_id (
@@ -158,10 +161,11 @@ export default function MyBookingsPage() {
             destination: translated.destination ?? travel?.destination ?? "",
             departure_at: departure,
             return_at: returning,
-            seats: row.reservation_items
-              .flatMap((item) => item.layout_seats ?? [])
-              .map((seat) => seat.label)
-              .filter(Boolean),
+            seats: row.reservation_items.map((item) => ({
+              id: item.id,
+              label: getSeatLabelValue(item.layout_seats) || "-",
+              status: item.status,
+            })),
             status: row.status,
             isPast,
           };
@@ -243,13 +247,31 @@ export default function MyBookingsPage() {
       return actions;
     }
 
+    if (canChangeSeatForReservation(group.status, group.departure_at)) {
+      actions.unshift(
+        <button
+          key="change-seat"
+          onClick={() =>
+            router.push(
+              `/${lang}/seat-map?travel=${encodeURIComponent(
+                group.travel_id
+              )}&reservation=${encodeURIComponent(group.id)}&change=1`
+            )
+          }
+          className="rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-700"
+        >
+          {t("page.my_bookings.change_seat", "Change Seat")}
+        </button>
+      );
+    }
+
     actions.unshift(
       <button
         key="view-item"
         onClick={() => router.push(`/${lang}/travels/${group.travel_id}`)}
         className="rounded-2xl bg-zinc-100 px-5 py-3 text-sm font-semibold transition hover:bg-zinc-200"
       >
-        {t("common.view", "مشاهده")}
+        {t("common.view", "View")}
       </button>
     );
 
@@ -271,73 +293,114 @@ export default function MyBookingsPage() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {rows.map((group) => (
-            <div
-              key={group.id}
-              className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <span
-                      className={[
-                        "inline-flex rounded-full px-3 py-1 text-xs font-bold",
-                        getStatusTone(group.status),
-                      ].join(" ")}
+          {rows.map((group) => {
+            const seatSummary = summarizeReservationStatuses(
+              group.seats.map((seat) => seat.status)
+            );
+
+            return (
+              <div
+                key={group.id}
+                className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <span
+                        className={[
+                          "inline-flex rounded-full px-3 py-1 text-xs font-bold",
+                          getReservationStatusTone(group.status),
+                        ].join(" ")}
+                      >
+                        {t("page.my_bookings.group_status", "Reservation")}:{" "}
+                        {getReservationStatusLabel(group.status, t)}
+                      </span>
+
+                      <span
+                        className={[
+                          "inline-flex rounded-full px-3 py-1 text-xs font-bold",
+                          seatSummary.kind === "mixed"
+                            ? "bg-violet-100 text-violet-700"
+                            : getReservationStatusTone(
+                                seatSummary.status ?? "expired"
+                              ),
+                        ].join(" ")}
+                      >
+                        {t("page.my_bookings.seat_status", "Seats")}:{" "}
+                        {seatSummary.kind === "mixed"
+                          ? t("page.my_bookings.mixed_status", "Mixed")
+                          : getReservationStatusLabel(
+                              seatSummary.status ?? "expired",
+                              t
+                            )}
+                      </span>
+
+                      {group.isPast ? (
+                        <span className="inline-flex rounded-full bg-zinc-900 px-3 py-1 text-xs font-bold text-white">
+                          {t("page.my_bookings.past_badge", "Past Trip")}
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                          {t("page.my_bookings.upcoming_badge", "Upcoming")}
+                        </span>
+                      )}
+                    </div>
+
+                    <Link
+                      href={`/${lang}/travels/${group.travel_id}`}
+                      className="text-xl font-bold text-zinc-900 underline-offset-4 hover:underline"
                     >
-                      {group.status}
-                    </span>
-                    {group.isPast ? (
-                      <span className="inline-flex rounded-full bg-zinc-900 px-3 py-1 text-xs font-bold text-white">
-                        {t("page.my_bookings.past_badge", "Past Trip")}
-                      </span>
-                    ) : (
-                      <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                        {t("page.my_bookings.upcoming_badge", "Upcoming")}
-                      </span>
-                    )}
-                  </div>
+                      {group.name}
+                    </Link>
 
-                  <Link
-                    href={`/${lang}/travels/${group.travel_id}`}
-                    className="text-xl font-bold text-zinc-900 underline-offset-4 hover:underline"
-                  >
-                    {group.name}
-                  </Link>
-                  <p className="mt-1 text-sm text-zinc-600">
-                    {group.destination
-                      ? `${group.origin} - ${group.destination}`
-                      : group.origin}
-                  </p>
+                    <p className="mt-1 text-sm text-zinc-600">
+                      {group.destination
+                        ? `${group.origin} - ${group.destination}`
+                        : group.origin}
+                    </p>
 
-                  <div className="mt-4 grid gap-3 text-sm text-zinc-600 md:grid-cols-2">
-                    <div>
-                      {t("page.my_bookings.departure", "Departure")}:
-                      <span className="ms-2 font-semibold text-zinc-900">
-                        {formatDate(group.departure_at, lang)}
-                      </span>
+                    <div className="mt-4 grid gap-3 text-sm text-zinc-600 md:grid-cols-2">
+                      <div>
+                        {t("page.my_bookings.departure", "Departure")}:
+                        <span className="ms-2 font-semibold text-zinc-900">
+                          {formatDate(group.departure_at, lang)}
+                        </span>
+                      </div>
+                      <div>
+                        {t("page.my_bookings.return", "Return")}:
+                        <span className="ms-2 font-semibold text-zinc-900">
+                          {formatDate(group.return_at, lang)}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      {t("page.my_bookings.return", "Return")}:
-                      <span className="ms-2 font-semibold text-zinc-900">
-                        {formatDate(group.return_at, lang)}
-                      </span>
-                    </div>
-                    <div className="md:col-span-2">
-                      {t("page.my_bookings.seat", "صندلی")}:
-                      <span className="ms-2 font-semibold text-zinc-900">
-                        {group.seats.length ? group.seats.join(", ") : "-"}
-                      </span>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {group.seats.length ? (
+                        group.seats.map((seat) => (
+                          <span
+                            key={seat.id}
+                            className={[
+                              "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold",
+                              getReservationStatusTone(seat.status),
+                            ].join(" ")}
+                          >
+                            {t("page.my_bookings.seat", "Seat")} {seat.label} •{" "}
+                            {getReservationStatusLabel(seat.status, t)}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-zinc-500">-</span>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                <div className="flex shrink-0 flex-wrap gap-2">
-                  {renderActions(group)}
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    {renderActions(group)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
@@ -354,12 +417,12 @@ export default function MyBookingsPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <h1 className="mb-8 text-3xl font-extrabold">
-        {t("page.my_bookings.title", "رزروهای من")}
+        {t("page.my_bookings.title", "My Bookings")}
       </h1>
 
       {items.length === 0 ? (
         <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
-          {t("page.my_bookings.empty_title", "هنوز رزروی ثبت نشده")}
+          {t("page.my_bookings.empty_title", "No bookings yet")}
         </div>
       ) : (
         <>

@@ -59,7 +59,7 @@ export default function HomeClient({ lang }: { lang: string }) {
   }, [lang]);
 
   return (
-    <main className="space-y-24">
+    <main className="space-y-20 sm:space-y-24">
       <section className="relative isolate overflow-hidden">
         <div
           className="pointer-events-none absolute inset-0 bg-cover bg-center"
@@ -67,24 +67,24 @@ export default function HomeClient({ lang }: { lang: string }) {
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/45 to-black/60" />
 
-        <div className="relative z-10 mx-auto flex min-h-[78vh] max-w-7xl items-center px-6 py-24 text-white">
+        <div className="relative z-10 mx-auto flex min-h-[68vh] max-w-7xl items-center px-4 py-16 text-white sm:px-6 sm:py-20 md:min-h-[78vh] md:py-24">
           <div className="max-w-3xl">
             <span className="mb-4 inline-block rounded-full bg-white/15 px-4 py-2 text-sm backdrop-blur">
               Energy Travel
             </span>
 
-            <h1 className="mb-6 text-4xl font-extrabold leading-tight md:text-6xl">
+            <h1 className="mb-6 text-3xl font-extrabold leading-tight sm:text-4xl md:text-6xl">
               {t("page.home.hero.title")}
             </h1>
 
-            <p className="mb-10 max-w-2xl text-lg leading-8 text-white/90">
+            <p className="mb-8 max-w-2xl text-base leading-7 text-white/90 sm:text-lg sm:leading-8">
               {t("page.home.hero.subtitle")}
             </p>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
               <Link
                 href={`/${lang}/travels`}
-                className="rounded-2xl bg-rose-600 px-8 py-4 font-bold text-white shadow-lg transition hover:scale-[1.02] hover:bg-rose-700"
+                className="rounded-2xl bg-rose-600 px-6 py-4 text-center font-bold text-white shadow-lg transition hover:scale-[1.02] hover:bg-rose-700"
               >
                 {t("page.home.hero.cta_primary")}
               </Link>
@@ -92,7 +92,7 @@ export default function HomeClient({ lang }: { lang: string }) {
               {!authLoading && !viewer ? (
                 <Link
                   href={`/${lang}/login`}
-                  className="rounded-2xl border border-white/40 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur transition hover:bg-white/20"
+                  className="rounded-2xl border border-white/40 bg-white/10 px-6 py-4 text-center font-bold text-white backdrop-blur transition hover:bg-white/20"
                 >
                   {t("page.home.hero.cta_secondary")}
                 </Link>
@@ -102,17 +102,17 @@ export default function HomeClient({ lang }: { lang: string }) {
                 <>
                   <Link
                     href={`/${lang}/my-bookings`}
-                    className="rounded-2xl border border-white/40 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur transition hover:bg-white/20"
+                    className="rounded-2xl border border-white/40 bg-white/10 px-6 py-4 text-center font-bold text-white backdrop-blur transition hover:bg-white/20"
                   >
-                    {t("navbar.my_bookings", "رزروهای من")}
+                    {t("navbar.my_bookings", "My Bookings")}
                   </Link>
 
                   {dashboardAllowed ? (
                     <Link
                       href={`/${lang}/dashboard`}
-                      className="rounded-2xl border border-white/40 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur transition hover:bg-white/20"
+                      className="rounded-2xl border border-white/40 bg-white/10 px-6 py-4 text-center font-bold text-white backdrop-blur transition hover:bg-white/20"
                     >
-                      {t("navbar.dashboard", "داشبورد")}
+                      {t("navbar.dashboard", "Dashboard")}
                     </Link>
                   ) : null}
                 </>
@@ -122,10 +122,10 @@ export default function HomeClient({ lang }: { lang: string }) {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6">
-        <div className="mb-8 flex items-end justify-between gap-4">
+      <section className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-zinc-900">
+            <h2 className="text-2xl font-bold text-zinc-900 sm:text-3xl">
               {t("page.home.section.upcoming")}
             </h2>
             <p className="mt-2 text-zinc-600">
@@ -135,22 +135,22 @@ export default function HomeClient({ lang }: { lang: string }) {
 
           <Link
             href={`/${lang}/travels`}
-            className="rounded-xl bg-zinc-900 px-5 py-3 text-white transition hover:bg-zinc-800"
+            className="rounded-xl bg-zinc-900 px-5 py-3 text-center text-white transition hover:bg-zinc-800"
           >
             {t("page.home.hero.cta_primary")}
           </Link>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {travels.map((travel) => (
             <TravelCard key={travel.id} travel={travel} lang={lang} />
           ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 pb-16">
-        <div className="overflow-hidden rounded-[32px] bg-gradient-to-r from-zinc-900 to-zinc-800 px-8 py-12 text-white md:px-12">
-          <h3 className="mb-3 text-3xl font-bold">
+      <section className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 sm:pb-16">
+        <div className="overflow-hidden rounded-[32px] bg-gradient-to-r from-zinc-900 to-zinc-800 px-6 py-10 text-white sm:px-8 md:px-12">
+          <h3 className="mb-3 text-2xl font-bold sm:text-3xl">
             {t("page.home.cta.title")}
           </h3>
           <p className="mb-8 max-w-2xl text-white/80">
@@ -159,7 +159,7 @@ export default function HomeClient({ lang }: { lang: string }) {
 
           <Link
             href={viewer ? `/${lang}/travels` : `/${lang}/login`}
-            className="rounded-2xl bg-rose-600 px-8 py-4 font-bold text-white transition hover:bg-rose-700"
+            className="inline-flex rounded-2xl bg-rose-600 px-8 py-4 font-bold text-white transition hover:bg-rose-700"
           >
             {viewer
               ? t("page.home.cta.button")
