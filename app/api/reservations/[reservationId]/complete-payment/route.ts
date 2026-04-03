@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/server/supabaseRoute";
+import { sendReservationStatusEmail } from "@/lib/email/reservationNotifications";
 
 export async function POST(
   request: Request,
@@ -97,6 +98,8 @@ export async function POST(
         "layout_seat_id",
         items.map((item) => item.layout_seat_id as string)
       );
+
+    await sendReservationStatusEmail(supabase, reservationId, "paid");
 
     return NextResponse.json({ ok: true });
   } catch (error) {

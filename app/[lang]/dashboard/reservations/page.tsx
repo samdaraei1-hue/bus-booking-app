@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { ReservationStatus } from "@/lib/types";
+import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
 import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
 import {
@@ -236,19 +237,20 @@ export default function DashboardReservationsPage() {
     setMsg(null);
 
     try {
-      const { error: groupError } = await supabase
-        .from("reservation_groups")
-        .update({ status })
-        .eq("id", groupId);
+      const response = await fetchWithSupabaseAuth(
+        `/api/dashboard/reservations/${encodeURIComponent(groupId)}/group-status`,
+        {
+          method: "POST",
+          body: JSON.stringify({ status }),
+        }
+      );
 
-      if (groupError) throw groupError;
-
-      const { error: itemsError } = await supabase
-        .from("reservation_items")
-        .update({ status })
-        .eq("reservation_group_id", groupId);
-
-      if (itemsError) throw itemsError;
+      if (!response.ok) {
+        throw new Error(
+          (response.data as { error?: string } | null)?.error ??
+            "Failed to update reservation"
+        );
+      }
 
       setItems((current) =>
         current.map((group) =>
@@ -282,12 +284,20 @@ export default function DashboardReservationsPage() {
     setMsg(null);
 
     try {
-      const { error } = await supabase
-        .from("reservation_items")
-        .update({ status })
-        .eq("id", seatId);
+      const response = await fetchWithSupabaseAuth(
+        `/api/dashboard/reservations/${encodeURIComponent(groupId)}/seat-status`,
+        {
+          method: "POST",
+          body: JSON.stringify({ seatId, status }),
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(
+          (response.data as { error?: string } | null)?.error ??
+            "Failed to update seat status"
+        );
+      }
 
       setItems((current) =>
         current.map((group) =>

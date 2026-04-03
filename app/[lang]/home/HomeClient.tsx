@@ -135,7 +135,7 @@ export default function HomeClient({ lang }: { lang: string }) {
 
           <Link
             href={`/${lang}/travels`}
-            className="rounded-xl bg-zinc-900 px-5 py-3 text-center text-white transition hover:bg-zinc-800"
+            className="rounded-xl bg-zinc-300 px-5 py-3 text-center text-white transition hover:bg-zinc-800"
           >
             {t("page.home.hero.cta_primary")}
           </Link>

@@ -79,7 +79,32 @@ a {
   border-radius: 1.75rem;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+}
+
+/* Safari still expects the prefixed version for Tailwind backdrop utilities. */
+[class*="backdrop-blur"] {
+  backdrop-filter:
+    var(--tw-backdrop-blur,)
+    var(--tw-backdrop-brightness,)
+    var(--tw-backdrop-contrast,)
+    var(--tw-backdrop-grayscale,)
+    var(--tw-backdrop-hue-rotate,)
+    var(--tw-backdrop-invert,)
+    var(--tw-backdrop-opacity,)
+    var(--tw-backdrop-saturate,)
+    var(--tw-backdrop-sepia,);
+  -webkit-backdrop-filter:
+    var(--tw-backdrop-blur,)
+    var(--tw-backdrop-brightness,)
+    var(--tw-backdrop-contrast,)
+    var(--tw-backdrop-grayscale,)
+    var(--tw-backdrop-hue-rotate,)
+    var(--tw-backdrop-invert,)
+    var(--tw-backdrop-opacity,)
+    var(--tw-backdrop-saturate,)
+    var(--tw-backdrop-sepia,);
 }
 
 @media (min-width: 640px) {

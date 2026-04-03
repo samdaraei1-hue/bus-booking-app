@@ -232,7 +232,7 @@ export default function SeatMapPage() {
     return () => {
       mounted = false;
     };
-  }, [lang, reservationId, router, t, travelId]);
+  }, [isChangeMode, lang, reservationId, router, t, travelId]);
 
   useEffect(() => {
     if (isViewMode || isChangeMode || !travelId) return;
@@ -326,6 +326,7 @@ export default function SeatMapPage() {
       body: JSON.stringify({
         travelId,
         seatIds: selectedSeatIds,
+        lang,
       }),
     });
 

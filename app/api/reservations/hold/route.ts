@@ -5,6 +5,7 @@ import { isReservationActive } from "@/lib/reservations";
 type HoldReservationBody = {
   travelId?: string;
   seatIds?: string[];
+  lang?: string;
 };
 
 type ReservationItemRow = {
@@ -26,6 +27,9 @@ export async function POST(request: Request) {
     const body = (await request.json()) as HoldReservationBody;
 
     const travelId = body.travelId?.trim() ?? "";
+    const notificationLang = ["fa", "en", "de"].includes(body.lang ?? "")
+      ? body.lang
+      : "en";
     const seatIds = Array.from(
       new Set((body.seatIds ?? []).map((item) => item.trim()).filter(Boolean))
     );
@@ -173,6 +177,7 @@ export async function POST(request: Request) {
         booker_user_id: user.id,
         status: "held",
         expires_at: expiresAt,
+        notification_lang: notificationLang,
       })
       .select("id")
       .single();
@@ -230,4 +235,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

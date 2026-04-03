@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/server/supabaseRoute";
+import { sendReservationStatusEmail } from "@/lib/email/reservationNotifications";
 
 type PassengerItemInput = {
   id?: string;
@@ -119,6 +120,8 @@ export async function POST(
       );
     }
 
+    await sendReservationStatusEmail(supabase, reservationId, "awaiting_payment");
+
     const seatIds = (dbItems ?? []).map((item) => item.layout_seat_id as string);
 
     await supabase
@@ -141,4 +144,3 @@ export async function POST(
     );
   }
 }
-
