@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
 import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
+import { getSafeSession } from "@/lib/auth/getSafeSession.client";
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -59,13 +60,10 @@ export default function PaymentPage() {
     setLoading(true);
     setMsg(null);
 
-    const {
-      data: { session },
-      error: authError,
-    } = await supabase.auth.getSession();
+    const { session } = await getSafeSession();
     const user = session?.user ?? null;
 
-    if (authError || !user) {
+    if (!user) {
       router.push(`/${lang}/login`);
       return;
     }

@@ -2,6 +2,17 @@ export type Travel = {
   id: string;
   name: string;
   type?: "travel" | "event" | null;
+  kind?:
+    | "trip"
+    | "event"
+    | "hiking"
+    | "walking"
+    | "camping"
+    | "mixed_trip"
+    | "custom"
+    | null;
+  booking_mode?: "seat_map" | "capacity_only" | null;
+  max_capacity?: number | null;
   origin: string;
   destination: string;
   departure_at: string;
@@ -56,7 +67,7 @@ export type ReservationGroup = {
 export type ReservationItem = {
   id: string;
   reservation_group_id: string;
-  layout_seat_id: string;
+  layout_seat_id: string | null;
   passenger_name: string | null;
   passenger_email: string | null;
   passenger_phone: string | null;

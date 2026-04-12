@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
+import { getSafeSession } from "@/lib/auth/getSafeSession.client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,9 +22,7 @@ export default function LoginPage() {
     let mounted = true;
 
     (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { session } = await getSafeSession();
       const user = session?.user ?? null;
 
       if (!mounted || !user) return;
@@ -47,7 +46,7 @@ export default function LoginPage() {
         },
       });
 
-    } catch (err) {
+    } catch {
       setMsg("An unexpected error occurred.");
       setLoading(false);
     }
@@ -65,7 +64,7 @@ export default function LoginPage() {
         },
       });
 
-    } catch (err) {
+    } catch {
       setMsg("لینک ورود به ایمیل شما ارسال شد.");
       setLoading(false);
     }

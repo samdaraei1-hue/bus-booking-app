@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Travel } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
+import { getBookingMode, getOfferingKind } from "@/lib/offerings";
 
 export default function DashboardTravelsPage() {
   const params = useParams<{ lang: string }>();
@@ -21,6 +22,8 @@ export default function DashboardTravelsPage() {
 
   useEffect(() => {
     void fetchTravels();
+    // fetchTravels intentionally depends only on lang here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
 
   const fetchTravels = async () => {
@@ -120,9 +123,16 @@ export default function DashboardTravelsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <span className="inline-flex rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
-                      {travel.type === "event"
-                        ? t("travel.type.event", "Event")
-                        : t("travel.type.travel", "Travel")}
+                      {(() => {
+                        const kind = getOfferingKind(travel.kind ?? travel.type);
+                        if (kind === "event") return t("travel.type.event", "Event");
+                        if (kind === "hiking") return t("travel.type.hiking", "Hiking");
+                        if (kind === "walking") return t("travel.type.walking", "Walking");
+                        if (kind === "camping") return t("travel.type.camping", "Camping");
+                        if (kind === "mixed_trip") return t("travel.type.mixed_trip", "Mixed trip");
+                        if (kind === "trip") return t("travel.type.travel", "Trip");
+                        return t("travel.type.custom", "Program");
+                      })()}
                     </span>
                     <h2 className="mt-3 text-base font-bold text-zinc-900">
                       {localized.name}
@@ -150,14 +160,16 @@ export default function DashboardTravelsPage() {
                   >
                     {t("button.edit", "Edit")}
                   </button>
-                  <button
-                    onClick={() =>
-                      router.push(`/${lang}/dashboard/travels/${travel.id}/layout`)
-                    }
-                    className="rounded-xl bg-emerald-50 px-3 py-2.5 font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                  >
-                    Seat Layout
-                  </button>
+                  {getBookingMode(travel.booking_mode) === "seat_map" ? (
+                    <button
+                      onClick={() =>
+                        router.push(`/${lang}/dashboard/travels/${travel.id}/layout`)
+                      }
+                      className="rounded-xl bg-emerald-50 px-3 py-2.5 font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                    >
+                      {t("page.travel_layout.title", "Seat Layout")}
+                    </button>
+                  ) : null}
                   <button
                     onClick={() =>
                       router.push(
@@ -166,7 +178,7 @@ export default function DashboardTravelsPage() {
                     }
                     className="rounded-xl bg-violet-50 px-3 py-2.5 font-semibold text-violet-700 transition hover:bg-violet-100"
                   >
-                    Translations
+                    {t("page.dashboard.translations", "Translations")}
                   </button>
                   <button
                     onClick={() => deleteTravel(travel.id)}
@@ -217,9 +229,16 @@ export default function DashboardTravelsPage() {
                 return (
                   <tr key={travel.id} className="border-b border-zinc-100">
                     <td className="p-3">
-                      {travel.type === "event"
-                        ? t("travel.type.event", "Event")
-                        : t("travel.type.travel", "Travel")}
+                      {(() => {
+                        const kind = getOfferingKind(travel.kind ?? travel.type);
+                        if (kind === "event") return t("travel.type.event", "Event");
+                        if (kind === "hiking") return t("travel.type.hiking", "Hiking");
+                        if (kind === "walking") return t("travel.type.walking", "Walking");
+                        if (kind === "camping") return t("travel.type.camping", "Camping");
+                        if (kind === "mixed_trip") return t("travel.type.mixed_trip", "Mixed trip");
+                        if (kind === "trip") return t("travel.type.travel", "Trip");
+                        return t("travel.type.custom", "Program");
+                      })()}
                     </td>
                     <td className="p-3 font-semibold text-zinc-900">
                       {localized.name}
@@ -240,14 +259,16 @@ export default function DashboardTravelsPage() {
                         >
                           {t("button.edit", "Edit")}
                         </button>
-                        <button
-                          onClick={() =>
-                            router.push(`/${lang}/dashboard/travels/${travel.id}/layout`)
-                          }
+                        {getBookingMode(travel.booking_mode) === "seat_map" ? (
+                          <button
+                            onClick={() =>
+                              router.push(`/${lang}/dashboard/travels/${travel.id}/layout`)
+                            }
                           className="font-semibold text-emerald-600 hover:underline"
                         >
-                          Seat Layout
+                          {t("page.travel_layout.title", "Seat Layout")}
                         </button>
+                      ) : null}
                         <button
                           onClick={() =>
                             router.push(
@@ -256,7 +277,7 @@ export default function DashboardTravelsPage() {
                           }
                           className="font-semibold text-violet-600 hover:underline"
                         >
-                          Translations
+                          {t("page.dashboard.translations", "Translations")}
                         </button>
                         <button
                           onClick={() => deleteTravel(travel.id)}
@@ -275,7 +296,7 @@ export default function DashboardTravelsPage() {
 
         {travels.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-200 p-8 text-center text-sm text-zinc-500">
-            No items found.
+            {t("page.dashboard.travels_empty", "No items found.")}
           </div>
         ) : null}
       </div>

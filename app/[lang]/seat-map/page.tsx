@@ -10,6 +10,8 @@ import { isReservationActive } from "@/lib/reservations";
 import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
 import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
 import { canChangeSeatForReservation } from "@/lib/reservationPolicies";
+import { getSafeSession } from "@/lib/auth/getSafeSession.client";
+import { getBookingMode } from "@/lib/offerings";
 
 type ReservationItemRow = {
   layout_seat_id: string;
@@ -53,6 +55,8 @@ export default function SeatMapPage() {
   const [seats, setSeats] = useState<LayoutSeat[]>([]);
   const [unavailableSeatIds, setUnavailableSeatIds] = useState<string[]>([]);
   const [travelTitle, setTravelTitle] = useState("");
+  const [bookingMode, setBookingMode] = useState<"seat_map" | "capacity_only">("seat_map");
+  const [participantCount, setParticipantCount] = useState(1);
   const [seatLimit, setSeatLimit] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
@@ -73,7 +77,7 @@ export default function SeatMapPage() {
       try {
         const { data: travelRow, error: travelError } = await supabase
           .from("travels")
-          .select("id, name, origin, destination, layout_id")
+          .select("id, name, origin, destination, layout_id, booking_mode, max_capacity")
           .eq("id", travelId)
           .single();
 
@@ -86,8 +90,22 @@ export default function SeatMapPage() {
 
         const travel = travelRow as Pick<
           Travel,
-          "id" | "name" | "origin" | "destination" | "layout_id"
+          "id" | "name" | "origin" | "destination" | "layout_id" | "booking_mode" | "max_capacity"
         >;
+        const nextBookingMode = getBookingMode(travel.booking_mode);
+        setBookingMode(nextBookingMode);
+
+        if (nextBookingMode === "capacity_only") {
+          setParticipantCount(Math.max(1, Math.min(Number(travel.max_capacity) || 1, 12)));
+          setSeats([]);
+          setUnavailableSeatIds([]);
+          setViewSeatIds([]);
+          setSelectedSeatIds([]);
+          setSeatLimit(null);
+          setLoading(false);
+          return;
+        }
+
         if (!travel.layout_id) {
           setMsg(
             t(
@@ -292,7 +310,9 @@ export default function SeatMapPage() {
     !isViewMode &&
     selectedSeatIds.length > 0 &&
     !!travelId &&
-    (!seatLimit || selectedSeatIds.length === seatLimit);
+    (bookingMode === "capacity_only"
+      ? participantCount > 0
+      : (!seatLimit || selectedSeatIds.length === seatLimit) && selectedSeatIds.length > 0);
   const selectedSeatsLabel = useMemo(
     () =>
       seats
@@ -307,13 +327,10 @@ export default function SeatMapPage() {
   const createHeldReservation = async () => {
     setMsg(null);
 
-    const {
-      data: { session },
-      error: authError,
-    } = await supabase.auth.getSession();
+    const { session } = await getSafeSession();
     const user = session?.user ?? null;
 
-    if (authError || !user) {
+    if (!user) {
       const next = `/${lang}/seat-map?travel=${encodeURIComponent(
         travelId
       )}&selected=${encodeURIComponent(selectedSeatIds.join(","))}`;
@@ -326,6 +343,7 @@ export default function SeatMapPage() {
       body: JSON.stringify({
         travelId,
         seatIds: selectedSeatIds,
+        participantCount,
         lang,
       }),
     });
@@ -408,14 +426,70 @@ export default function SeatMapPage() {
         ) : isChangeMode ? (
           <p className="mt-2 text-sm text-amber-700">
             {seatLimit
-              ? `Select exactly ${seatLimit} seat(s) to replace your current selection.`
-              : "Select your new seats."}
+              ? t(
+                  "page.seat_map.change_exact_count",
+                  "Select exactly {count} seat(s) to replace your current selection."
+                ).replace("{count}", String(seatLimit))
+              : t("page.seat_map.change_prompt", "Select your new seats.")}
           </p>
         ) : null}
         {msg ? <p className="mt-2 text-sm text-rose-600">{msg}</p> : null}
       </div>
 
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
+        {bookingMode === "capacity_only" ? (
+          <>
+            <div className="mb-4">
+              <div className="text-sm font-semibold text-zinc-700">
+                {t("page.seat_map.participant_count", "Participant count")}
+              </div>
+              <p className="mt-1 text-sm text-zinc-500">
+                {t(
+                  "page.seat_map.capacity_only_help",
+                  "This item does not use seat selection. Choose how many people you want to register."
+                )}
+              </p>
+            </div>
+
+            <div className="mb-6 max-w-xs">
+              <input
+                type="number"
+                min={1}
+                max={12}
+                value={participantCount}
+                onChange={(event) =>
+                  setParticipantCount(Math.max(1, Math.min(12, Number(event.target.value) || 1)))
+                }
+                className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
+              />
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="rounded-2xl bg-zinc-100 px-6 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
+              >
+                {t("common.back")}
+              </button>
+
+              <button
+                type="button"
+                disabled={!canContinue}
+                onClick={() => void createHeldReservation()}
+                className={
+                  "rounded-2xl px-6 py-3 text-sm font-bold text-white shadow-lg transition " +
+                  (canContinue
+                    ? "bg-rose-600 hover:bg-rose-700"
+                    : "cursor-not-allowed bg-zinc-300")
+                }
+              >
+                {t("page.seat_map.continue_payment")}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
         <div className="mb-4 text-center text-xs font-bold tracking-wide text-zinc-500">
           {t("page.seat_map.bus_back", "Back of Bus")}
         </div>
@@ -433,9 +507,15 @@ export default function SeatMapPage() {
         </div>
 
         <div className="mb-4 flex flex-wrap gap-2 text-xs font-semibold text-zinc-700">
-          <span className="rounded-full bg-zinc-100 px-3 py-1">Standard</span>
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">VIP</span>
-          <span className="rounded-full bg-zinc-300 px-3 py-1 text-zinc-700">Locked</span>
+          <span className="rounded-full bg-zinc-100 px-3 py-1">
+            {t("common.standard", "Standard")}
+          </span>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">
+            {t("common.vip", "VIP")}
+          </span>
+          <span className="rounded-full bg-zinc-300 px-3 py-1 text-zinc-700">
+            {t("common.locked", "Locked")}
+          </span>
         </div>
 
         <SeatGrid
@@ -446,6 +526,7 @@ export default function SeatMapPage() {
           readOnly={isViewMode}
           maxSelection={seatLimit ?? undefined}
           onChange={setSelectedSeatIds}
+          lang={lang}
         />
 
         {selectedSeatsLabel ? (
@@ -482,10 +563,14 @@ export default function SeatMapPage() {
                   : "cursor-not-allowed bg-zinc-300")
               }
             >
-              {isChangeMode ? "Confirm Seat Change" : t("page.seat_map.continue_payment")}
+              {isChangeMode
+                ? t("page.seat_map.confirm_change", "Confirm Seat Change")
+                : t("page.seat_map.continue_payment")}
             </button>
           ) : null}
         </div>
+          </>
+        )}
       </div>
     </main>
   );

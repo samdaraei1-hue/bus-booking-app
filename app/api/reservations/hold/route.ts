@@ -5,6 +5,7 @@ import { isReservationActive } from "@/lib/reservations";
 type HoldReservationBody = {
   travelId?: string;
   seatIds?: string[];
+  participantCount?: number;
   lang?: string;
 };
 
@@ -33,32 +34,104 @@ export async function POST(request: Request) {
     const seatIds = Array.from(
       new Set((body.seatIds ?? []).map((item) => item.trim()).filter(Boolean))
     );
+    const participantCount = Number(body.participantCount) || 0;
 
-    if (!travelId || seatIds.length === 0) {
+    if (!travelId) {
       return NextResponse.json(
-        { error: "Travel and at least one seat are required." },
-        { status: 400 }
-      );
-    }
-
-    if (seatIds.length > 12) {
-      return NextResponse.json(
-        { error: "Too many seats requested at once." },
+        { error: "Item is required." },
         { status: 400 }
       );
     }
 
     const { data: travel, error: travelError } = await supabase
       .from("travels")
-      .select("id, layout_id")
+      .select("id, layout_id, booking_mode, max_capacity")
       .eq("id", travelId)
       .single();
 
-    if (travelError || !travel?.layout_id) {
+    if (travelError || !travel) {
       return NextResponse.json(
-        { error: "Travel layout not found." },
+        { error: "Item not found." },
         { status: 404 }
       );
+    }
+
+    const bookingMode =
+      travel.booking_mode === "capacity_only" ? "capacity_only" : "seat_map";
+
+    if (bookingMode === "seat_map" && !travel.layout_id) {
+      return NextResponse.json(
+        { error: "Seat layout not found." },
+        { status: 404 }
+      );
+    }
+
+    if (bookingMode === "seat_map") {
+      if (seatIds.length === 0) {
+        return NextResponse.json(
+          { error: "At least one seat is required." },
+          { status: 400 }
+        );
+      }
+
+      if (seatIds.length > 12) {
+        return NextResponse.json(
+          { error: "Too many seats requested at once." },
+          { status: 400 }
+        );
+      }
+    } else {
+      if (participantCount < 1) {
+        return NextResponse.json(
+          { error: "At least one participant is required." },
+          { status: 400 }
+        );
+      }
+
+      if (travel.max_capacity && participantCount > Number(travel.max_capacity)) {
+        return NextResponse.json(
+          { error: "Participant count exceeds capacity." },
+          { status: 409 }
+        );
+      }
+    }
+
+    if (bookingMode === "capacity_only") {
+      const { data: reservationGroup, error: groupError } = await supabase
+        .from("reservation_groups")
+        .insert({
+          travel_id: travelId,
+          booker_user_id: user.id,
+          status: "held",
+          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+          notification_lang: notificationLang,
+        })
+        .select("id")
+        .single();
+
+      if (groupError || !reservationGroup) {
+        return NextResponse.json(
+          { error: groupError?.message ?? "Failed to create reservation." },
+          { status: 400 }
+        );
+      }
+
+      const { error: itemsError } = await supabase.from("reservation_items").insert(
+        Array.from({ length: participantCount }).map(() => ({
+          reservation_group_id: reservationGroup.id,
+          layout_seat_id: null,
+          status: "held",
+        }))
+      );
+
+      if (itemsError) {
+        await supabase.from("reservation_groups").delete().eq("id", reservationGroup.id);
+        return NextResponse.json({ error: itemsError.message }, { status: 400 });
+      }
+
+      return NextResponse.json({
+        reservationId: reservationGroup.id,
+      });
     }
 
     const { data: seats, error: seatsError } = await supabase

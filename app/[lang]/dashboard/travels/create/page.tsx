@@ -1,96 +1,90 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 import { withTimeout } from "@/lib/async/withTimeout";
+import { type BookingMode, type OfferingKind } from "@/lib/offerings";
+
+type SelectUser = {
+  id: string;
+  name: string | null;
+};
+
+type TeamInsertRow = {
+  travel_id: string;
+  colleague_id: string;
+  role: "leader" | "driver";
+};
 
 function sanitizeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
 export default function CreateTravelPage() {
-
   const router = useRouter();
   const params = useParams();
   const lang = params.lang as string;
   const dir = lang === "fa" ? "rtl" : "ltr";
-
   const t = useT(lang);
 
-  const [users, setUsers] = useState<any[]>([]);
-
+  const [users, setUsers] = useState<SelectUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [type, setType] = useState<"travel" | "event">("travel");
+  const [kind, setKind] = useState<OfferingKind>("trip");
+  const [bookingMode, setBookingMode] = useState<BookingMode>("seat_map");
+  const [maxCapacity, setMaxCapacity] = useState("");
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
-  const [departure_at, setDeparture] = useState("");
-  const [return_at, setReturn] = useState("");
+  const [departureAt, setDepartureAt] = useState("");
+  const [returnAt, setReturnAt] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
-
   const [leaders, setLeaders] = useState<string[]>([]);
   const [drivers, setDrivers] = useState<string[]>([]);
-
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const isEvent = type === "event";
+
+  const isEvent = type === "event" || kind === "event";
+  const isSeatMapBooking = bookingMode === "seat_map";
 
   useEffect(() => {
     const loadUsers = async () => {
       const { data } = await supabase.from("users").select("id,name");
-      if (data) setUsers(data);
+      if (data) setUsers(data as SelectUser[]);
     };
-    loadUsers();
+
+    void loadUsers();
   }, []);
 
-    // ===== leader handlers =====
-
-  const addLeader = () => setLeaders([...leaders, ""]);
-
-  const updateLeader = (index:number,value:string) => {
-    const updated=[...leaders];
-    updated[index]=value;
-    setLeaders(updated);
+  const addLeader = () => setLeaders((current) => [...current, ""]);
+  const updateLeader = (index: number, value: string) => {
+    setLeaders((current) => current.map((item, i) => (i === index ? value : item)));
+  };
+  const removeLeader = (index: number) => {
+    setLeaders((current) => current.filter((_, i) => i !== index));
   };
 
-  const removeLeader = (index:number) => {
-    setLeaders(leaders.filter((_,i)=>i!==index));
+  const addDriver = () => setDrivers((current) => [...current, ""]);
+  const updateDriver = (index: number, value: string) => {
+    setDrivers((current) => current.map((item, i) => (i === index ? value : item)));
   };
-
-  // ===== driver handlers =====
-  const addDriver = () => {
-    setDrivers([...drivers, ""]);
-  };
-
-  const updateDriver = (index:number,value:string) => {
-    const updated=[...drivers];
-    updated[index]=value;
-    setDrivers(updated);
-  };
-
-  const removeDriver = (index:number) => {
-    const updated=drivers.filter((_,i)=>i!==index);
-    setDrivers(updated);
+  const removeDriver = (index: number) => {
+    setDrivers((current) => current.filter((_, i) => i !== index));
   };
 
   const uploadImage = async () => {
-
     if (!imageFile) return null;
 
-    const path=`travels/${Date.now()}_${sanitizeFileName(imageFile.name)}`;
-
+    const path = `travels/${Date.now()}_${sanitizeFileName(imageFile.name)}`;
     const { error } = await withTimeout(
-      supabase
-        .storage
-        .from("trip-images")
-        .upload(path,imageFile,{
-          cacheControl: "3600",
-          upsert: false,
-        }),
+      supabase.storage.from("trip-images").upload(path, imageFile, {
+        cacheControl: "3600",
+        upsert: false,
+      }),
       15000,
       "Uploading image to Supabase Storage timed out"
     );
@@ -100,38 +94,41 @@ export default function CreateTravelPage() {
       return null;
     }
 
-    const { data } = supabase
-      .storage
-      .from("trip-images")
-      .getPublicUrl(path);
-
+    const { data } = supabase.storage.from("trip-images").getPublicUrl(path);
     return data.publicUrl;
-
   };
 
   const saveTravel = async () => {
-    if (!name || !origin || !departure_at) {
-      setErrorMsg(t("error.missing_fields", "Please fill in the required fields (Name, Origin, Departure)"));
+    if (!name || !origin || !departureAt) {
+      setErrorMsg(
+        t(
+          "error.missing_fields",
+          "Please fill in the required fields (Name, Origin, Departure)"
+        )
+      );
       return;
     }
 
     setLoading(true);
     setErrorMsg(null);
 
-    const image_url = await uploadImage();
+    const imageUrl = await uploadImage();
 
-    const { data:travel,error } = await supabase
+    const { data: travel, error } = await supabase
       .from("travels")
       .insert({
         name,
         type,
+        kind,
+        booking_mode: bookingMode,
+        max_capacity: isSeatMapBooking ? null : Number(maxCapacity) || null,
         origin,
         destination: isEvent ? null : destination,
-        departure_at: departure_at || null,
-        return_at: return_at || null,
+        departure_at: departureAt || null,
+        return_at: returnAt || null,
         price: price ? parseFloat(price) : 0,
         description,
-        image_url
+        image_url: imageUrl,
       })
       .select()
       .single();
@@ -143,33 +140,33 @@ export default function CreateTravelPage() {
       return;
     }
 
-    const team:any[]=[];
+    const team: TeamInsertRow[] = [];
 
-    leaders.forEach((l)=>{
-      if (l) {
-          team.push({
-            travel_id:travel.id,
-            colleague_id:l,
-            role:"leader"
-          });
-        }
-    });
-    
-    drivers.forEach((d)=>{
-      if(d){
-        team.push({
-          travel_id:travel.id,
-          colleague_id:d,
-          role:"driver"
-        });
-      }
+    leaders.forEach((leaderId) => {
+      if (!leaderId) return;
+      team.push({
+        travel_id: travel.id,
+        colleague_id: leaderId,
+        role: "leader",
+      });
     });
 
-    if(team.length>0){
+    drivers.forEach((driverId) => {
+      if (!driverId) return;
+      team.push({
+        travel_id: travel.id,
+        colleague_id: driverId,
+        role: "driver",
+      });
+    });
+
+    if (team.length > 0) {
       const { error: teamError } = await supabase.from("travel_teams").insert(team);
       if (teamError) {
         console.error(teamError);
-        setErrorMsg("Travel created, but failed to save team: " + teamError.message);
+        setErrorMsg(
+          `${t("travels.team_save_failed", "Item created, but failed to save team:")} ${teamError.message}`
+        );
         setLoading(false);
         return;
       }
@@ -179,27 +176,30 @@ export default function CreateTravelPage() {
   };
 
   return (
-
-    <div dir={dir} className="flex justify-center py-10 bg-zinc-50 min-h-screen">
-
-      <div className="w-full max-w-xl bg-white p-8 rounded-3xl shadow-sm border border-zinc-200">
-
-        <h1 className="text-2xl font-semibold mb-8 text-start">
+    <div dir={dir} className="flex min-h-screen justify-center bg-zinc-50 py-10">
+      <div className="w-full max-w-xl rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
+        <h1 className="mb-8 text-start text-2xl font-semibold">
           {isEvent
             ? t("event.create", "Create program")
-            : t("travels.create","Create travel")}
+            : t("travels.create", "Create travel")}
         </h1>
 
         <div className="space-y-6">
           <div>
-            <label htmlFor="type" className="text-sm text-zinc-600 block mb-1">
-              {t("travels.type","Type")}
+            <label htmlFor="type" className="mb-1 block text-sm text-zinc-600">
+              {t("travels.type", "Type")}
             </label>
             <select
               id="type"
               className="w-full rounded-xl border border-zinc-200 p-3"
               value={type}
-              onChange={(e) => setType(e.target.value as "travel" | "event")}
+              onChange={(event) => {
+                const nextType = event.target.value as "travel" | "event";
+                setType(nextType);
+                if (nextType === "event" && kind === "trip") {
+                  setKind("event");
+                }
+              }}
             >
               <option value="travel">{t("travel.type.travel", "Travel")}</option>
               <option value="event">{t("travel.type.event", "Event")}</option>
@@ -207,43 +207,95 @@ export default function CreateTravelPage() {
           </div>
 
           <div>
-            <label htmlFor="name" className="text-sm text-zinc-600 block mb-1">
-              {isEvent ? t("event.name", "Program name") : t("travels.name","Name")}
+            <label htmlFor="kind" className="mb-1 block text-sm text-zinc-600">
+              {t("travels.kind", "Category")}
+            </label>
+            <select
+              id="kind"
+              className="w-full rounded-xl border border-zinc-200 p-3"
+              value={kind}
+              onChange={(event) => setKind(event.target.value as OfferingKind)}
+            >
+              <option value="trip">{t("travel.type.travel", "Trip")}</option>
+              <option value="event">{t("travel.type.event", "Event")}</option>
+              <option value="hiking">{t("travel.type.hiking", "Hiking")}</option>
+              <option value="walking">{t("travel.type.walking", "Walking")}</option>
+              <option value="camping">{t("travel.type.camping", "Camping")}</option>
+              <option value="mixed_trip">{t("travel.type.mixed_trip", "Mixed trip")}</option>
+              <option value="custom">{t("travel.type.custom", "Program")}</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="booking-mode" className="mb-1 block text-sm text-zinc-600">
+              {t("travels.booking_mode", "Booking mode")}
+            </label>
+            <select
+              id="booking-mode"
+              className="w-full rounded-xl border border-zinc-200 p-3"
+              value={bookingMode}
+              onChange={(event) => setBookingMode(event.target.value as BookingMode)}
+            >
+              <option value="seat_map">
+                {t("travels.booking_mode_seat_map", "Seat map")}
+              </option>
+              <option value="capacity_only">
+                {t("travels.booking_mode_capacity_only", "Capacity only")}
+              </option>
+            </select>
+          </div>
+
+          {!isSeatMapBooking ? (
+            <div>
+              <label htmlFor="max-capacity" className="mb-1 block text-sm text-zinc-600">
+                {t("travels.max_capacity", "Maximum capacity")}
+              </label>
+              <input
+                id="max-capacity"
+                type="number"
+                min={1}
+                className="w-full rounded-xl border border-zinc-200 p-3"
+                value={maxCapacity}
+                onChange={(event) => setMaxCapacity(event.target.value)}
+              />
+            </div>
+          ) : null}
+
+          <div>
+            <label htmlFor="name" className="mb-1 block text-sm text-zinc-600">
+              {isEvent ? t("event.name", "Program name") : t("travels.name", "Name")}
             </label>
             <input
               id="name"
               className="w-full rounded-xl border border-zinc-200 p-3"
               value={name}
-              onChange={(e)=>setName(e.target.value)}
+              onChange={(event) => setName(event.target.value)}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-
             <div>
-              <label htmlFor="origin" className="text-sm text-zinc-600 block mb-1">
-                {isEvent
-                  ? t("event.venue", "Venue")
-                  : t("travels.origin","Origin")}
+              <label htmlFor="origin" className="mb-1 block text-sm text-zinc-600">
+                {isEvent ? t("event.venue", "Venue") : t("travels.origin", "Origin")}
               </label>
               <input
                 id="origin"
                 className="w-full rounded-xl border border-zinc-200 p-3"
                 value={origin}
-                onChange={(e)=>setOrigin(e.target.value)}
+                onChange={(event) => setOrigin(event.target.value)}
               />
             </div>
 
             {!isEvent ? (
               <div>
-                <label htmlFor="destination" className="text-sm text-zinc-600 block mb-1">
-                  {t("travels.destination","Destination")}
+                <label htmlFor="destination" className="mb-1 block text-sm text-zinc-600">
+                  {t("travels.destination", "Destination")}
                 </label>
                 <input
                   id="destination"
                   className="w-full rounded-xl border border-zinc-200 p-3"
                   value={destination}
-                  onChange={(e)=>setDestination(e.target.value)}
+                  onChange={(event) => setDestination(event.target.value)}
                 />
               </div>
             ) : (
@@ -251,228 +303,201 @@ export default function CreateTravelPage() {
                 {t("event.no_destination", "Programs do not use a destination field.")}
               </div>
             )}
-
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-
             <div>
-              <label htmlFor="departure" className="text-sm text-zinc-600 block mb-1">
+              <label htmlFor="departure" className="mb-1 block text-sm text-zinc-600">
                 {isEvent
                   ? t("event.start", "Program start")
-                  : t("travels.departure","Departure")}
+                  : t("travels.departure", "Departure")}
               </label>
               <input
                 id="departure"
                 type="datetime-local"
                 className="w-full rounded-xl border border-zinc-200 p-3"
-                value={departure_at}
-                onChange={(e)=>setDeparture(e.target.value)}
+                value={departureAt}
+                onChange={(event) => setDepartureAt(event.target.value)}
               />
             </div>
 
             <div>
-              <label htmlFor="return" className="text-sm text-zinc-600 block mb-1">
-                {isEvent
-                  ? t("event.end", "Program end")
-                  : t("travels.return","Return")}
+              <label htmlFor="return" className="mb-1 block text-sm text-zinc-600">
+                {isEvent ? t("event.end", "Program end") : t("travels.return", "Return")}
               </label>
               <input
                 id="return"
                 type="datetime-local"
                 className="w-full rounded-xl border border-zinc-200 p-3"
-                value={return_at}
-                onChange={(e)=>setReturn(e.target.value)}
+                value={returnAt}
+                onChange={(event) => setReturnAt(event.target.value)}
               />
             </div>
-
           </div>
 
           <div>
-            <label htmlFor="price" className="text-sm text-zinc-600 block mb-1">
-              {t("travels.price","Price (€)")}
+            <label htmlFor="price" className="mb-1 block text-sm text-zinc-600">
+              {t("travels.price", "Price")}
             </label>
             <input
               id="price"
               type="number"
               className="w-full rounded-xl border border-zinc-200 p-3"
               value={price}
-              onChange={(e)=>setPrice(e.target.value)}
+              onChange={(event) => setPrice(event.target.value)}
             />
           </div>
 
           <div>
-            <label htmlFor="description" className="text-sm text-zinc-600 block mb-1">
-              {t("travels.description","Description")}
+            <label htmlFor="description" className="mb-1 block text-sm text-zinc-600">
+              {t("travels.description", "Description")}
             </label>
             <textarea
               id="description"
               className="w-full rounded-xl border border-zinc-200 p-3"
               value={description}
-              onChange={(e)=>setDescription(e.target.value)}
+              onChange={(event) => setDescription(event.target.value)}
             />
           </div>
 
           <div>
-            <label htmlFor="image" className="text-sm text-zinc-600 block mb-1">
+            <label htmlFor="image" className="mb-1 block text-sm text-zinc-600">
               {isEvent
                 ? t("event.image", "Program image")
-                : t("travels.image","Travel image")}
+                : t("travels.image", "Travel image")}
             </label>
             <input
               id="image"
               type="file"
               accept="image/*"
-              onChange={(e)=>setImageFile(e.target.files?.[0] || null)}
+              onChange={(event) => setImageFile(event.target.files?.[0] || null)}
             />
           </div>
 
-          <hr/>
+          <hr />
 
           <h2 className="text-lg font-medium">
-            {isEvent
-              ? t("event.team", "Program team")
-              : t("travels.team","Travel team")}
+            {isEvent ? t("event.team", "Program team") : t("travels.team", "Travel team")}
           </h2>
 
           <div className="space-y-3">
-
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">
                 {isEvent
-                  ? t("event.organizers","Organizers")
-                  : t("travels.leaders","Leaders")}
+                  ? t("event.organizers", "Organizers")
+                  : t("travels.leaders", "Leaders")}
               </span>
 
-              <button
-                type="button"
-                onClick={addLeader}
-                className="text-sm text-blue-600"
-              >
-                {isEvent ? "+ Add organizer" : "+ Add leader"}
+              <button type="button" onClick={addLeader} className="text-sm text-blue-600">
+                {isEvent
+                  ? t("event.add_organizer", "+ Add organizer")
+                  : t("travels.add_leader", "+ Add leader")}
               </button>
             </div>
 
-            {leaders.map((leader,index)=>(
+            {leaders.map((leader, index) => (
               <div key={index} className="flex gap-2 items-start">
-
                 <div className="flex-1">
-                    <label
+                  <label
                     htmlFor={`leader-${index}`}
-                    className="text-sm text-zinc-600 block mb-1"
-                    >
+                    className="mb-1 block text-sm text-zinc-600"
+                  >
                     {isEvent
-                      ? t("event.organizer","Organizer")
-                      : t("travels.leader","Leader")} {index + 1}
-                    </label>
+                      ? t("event.organizer", "Organizer")
+                      : t("travels.leader", "Leader")}{" "}
+                    {index + 1}
+                  </label>
 
-                    <select
+                  <select
                     id={`leader-${index}`}
                     className="w-full rounded-xl border border-zinc-200 p-3"
                     value={leader}
-                    onChange={(e)=>updateLeader(index,e.target.value)}
-                    >
-                    <option value="">{t("common.select","Select")}</option>
-
-                    {users.map((u)=>(
-                        <option key={u.id} value={u.id}>
-                        {u.name}
-                        </option>
+                    onChange={(event) => updateLeader(index, event.target.value)}
+                  >
+                    <option value="">{t("common.select", "Select")}</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
                     ))}
-
-                    </select>
+                  </select>
                 </div>
 
                 <button
                   type="button"
-                  onClick={()=>removeLeader(index)}
-                  className="px-3 bg-red-100 text-red-600 rounded-xl"
+                  onClick={() => removeLeader(index)}
+                  className="rounded-xl bg-red-100 px-3 py-2 text-red-600"
                 >
-                  ×
+                  {t("common.remove", "Remove")}
                 </button>
-
               </div>
             ))}
-
           </div>
 
           {!isEvent ? (
-          <div className="space-y-3">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  {t("travels.drivers", "Drivers")}
+                </span>
 
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">
-                {t("travels.drivers","Drivers")}
-              </span>
+                <button type="button" onClick={addDriver} className="text-sm text-blue-600">
+                  {t("travels.add_driver", "+ Add driver")}
+                </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={addDriver}
-                className="text-sm text-blue-600"
-              >
-                + Add driver
-              </button>
-            </div>
-
-            {drivers.map((driver,index)=>(
-              <div key={index} className="flex gap-2 items-start">
-
-                <div className="flex-1">
+              {drivers.map((driver, index) => (
+                <div key={index} className="flex gap-2 items-start">
+                  <div className="flex-1">
                     <label
-                    htmlFor={`driver-${index}`}
-                    className="text-sm text-zinc-600 block mb-1"
+                      htmlFor={`driver-${index}`}
+                      className="mb-1 block text-sm text-zinc-600"
                     >
-                    {t("travels.driver","Driver")} {index + 1}
+                      {t("travels.driver", "Driver")} {index + 1}
                     </label>
 
                     <select
-                    id={`driver-${index}`}
-                    className="w-full rounded-xl border border-zinc-200 p-3"
-                    value={driver}
-                    onChange={(e)=>updateDriver(index,e.target.value)}
+                      id={`driver-${index}`}
+                      className="w-full rounded-xl border border-zinc-200 p-3"
+                      value={driver}
+                      onChange={(event) => updateDriver(index, event.target.value)}
                     >
-                    <option value="">{t("common.select","Select")}</option>
-
-                    {users.map((u)=>(
-                        <option key={u.id} value={u.id}>
-                        {u.name}
+                      <option value="">{t("common.select", "Select")}</option>
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name}
                         </option>
-                    ))}
-
+                      ))}
                     </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => removeDriver(index)}
+                    className="rounded-xl bg-red-100 px-3 py-2 text-red-600"
+                  >
+                    {t("common.remove", "Remove")}
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={()=>removeDriver(index)}
-                  className="px-3 bg-red-100 text-red-600 rounded-xl"
-                >
-                  ×
-                </button>
-
-              </div>
-            ))}
-
-          </div>
+              ))}
+            </div>
           ) : null}
 
           <button
             onClick={saveTravel}
             disabled={loading}
-            className="w-full bg-black text-white py-3 rounded-xl hover:bg-zinc-800 transition disabled:opacity-50"
+            className="w-full rounded-xl bg-black py-3 text-white transition hover:bg-zinc-800 disabled:opacity-50"
           >
             {loading ? t("common.saving", "Saving...") : t("common.save", "Save")}
           </button>
 
-          {errorMsg && (
-            <div className="text-sm text-red-600 mt-2 bg-red-50 p-4 rounded-2xl border border-red-100 text-center">
+          {errorMsg ? (
+            <div className="mt-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-center text-sm text-red-600">
               {errorMsg}
             </div>
-          )}
-
+          ) : null}
         </div>
-
       </div>
-
     </div>
   );
 }

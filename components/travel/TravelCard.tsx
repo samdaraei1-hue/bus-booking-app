@@ -4,6 +4,11 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Travel } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
+import {
+  getOfferingKind,
+  isLocationOnlyOffering,
+  isSeatMapBooking,
+} from "@/lib/offerings";
 
 export default function TravelCard({
   travel,
@@ -14,14 +19,27 @@ export default function TravelCard({
 }) {
   const t = useT(lang);
   const imageSrc = travel.image_url || "/images/travel.jpg";
+  const kind = getOfferingKind(travel.kind ?? travel.type);
   const itemType =
-    travel.type === "event"
+    kind === "event"
       ? t("travel.type.event", "Event")
-      : t("travel.type.travel", "Travel");
-  const routeText =
-    travel.type === "event"
-      ? travel.origin
-      : `${travel.origin} → ${travel.destination}`;
+      : kind === "hiking"
+        ? t("travel.type.hiking", "Hiking")
+        : kind === "walking"
+          ? t("travel.type.walking", "Walking")
+          : kind === "camping"
+            ? t("travel.type.camping", "Camping")
+            : kind === "mixed_trip"
+              ? t("travel.type.mixed_trip", "Mixed trip")
+              : kind === "trip"
+                ? t("travel.type.travel", "Trip")
+                : t("travel.type.custom", "Program");
+  const routeText = isLocationOnlyOffering(travel)
+    ? travel.origin
+    : `${travel.origin} -> ${travel.destination}`;
+  const bookingHint = isSeatMapBooking(travel)
+    ? t("common.reserve_with_seats", "Seat selection available")
+    : t("common.reserve_without_seats", "Direct booking");
 
   return (
     <motion.div
@@ -45,7 +63,7 @@ export default function TravelCard({
               {itemType}
             </span>
             <span className="rounded-full bg-rose-600 px-3 py-1 text-sm font-bold">
-              €{travel.price}
+              EUR {travel.price}
             </span>
           </div>
         </div>
@@ -64,7 +82,7 @@ export default function TravelCard({
           </p>
 
           <div className="pt-2 text-sm font-semibold text-rose-600">
-            {t("common.view")} · {t("common.reserve")}
+            {t("common.view")} · {bookingHint}
           </div>
         </div>
       </Link>

@@ -13,11 +13,15 @@ import {
 } from "@/lib/reservationPresentation";
 import { getSeatLabelValue } from "@/lib/seatLabels";
 import { canChangeSeatForReservation } from "@/lib/reservationPolicies";
+import { getSafeSession } from "@/lib/auth/getSafeSession.client";
+import { getBookingMode } from "@/lib/offerings";
 
 type Travel = {
   id: string;
   name: string;
   type?: "travel" | "event" | null;
+  kind?: string | null;
+  booking_mode?: "seat_map" | "capacity_only" | null;
   origin: string;
   destination: string;
   departure_at: string;
@@ -50,6 +54,7 @@ type BookingCard = {
   id: string;
   travel_id: string;
   name: string;
+  booking_mode: "seat_map" | "capacity_only";
   origin: string;
   destination: string;
   departure_at: string;
@@ -85,13 +90,10 @@ export default function MyBookingsPage() {
       setLoading(true);
 
       try {
-        const {
-          data: { session },
-          error: authError,
-        } = await supabase.auth.getSession();
+        const { session } = await getSafeSession();
         const user = session?.user ?? null;
 
-        if (authError || !user) {
+        if (!user) {
           router.push(`/${lang}/login`);
           return;
         }
@@ -115,6 +117,8 @@ export default function MyBookingsPage() {
                 id,
                 name,
                 type,
+                kind,
+                booking_mode,
                 origin,
                 destination,
                 departure_at,
@@ -157,6 +161,7 @@ export default function MyBookingsPage() {
             id: row.id,
             travel_id: row.travel_id,
             name: translated.name ?? travel?.name ?? "Travel",
+            booking_mode: getBookingMode(travel?.booking_mode),
             origin: translated.origin ?? travel?.origin ?? "",
             destination: translated.destination ?? travel?.destination ?? "",
             departure_at: departure,
@@ -194,19 +199,23 @@ export default function MyBookingsPage() {
 
   const renderActions = (group: BookingCard) => {
     const actions = [
-      <button
-        key="seat-map"
-        onClick={() =>
-          router.push(
-            `/${lang}/seat-map?travel=${encodeURIComponent(
-              group.travel_id
-            )}&reservation=${encodeURIComponent(group.id)}&view=1`
-          )
-        }
-        className="w-full rounded-2xl bg-zinc-100 px-5 py-3 text-sm font-semibold transition hover:bg-zinc-200 sm:w-auto"
-      >
-        {t("page.my_bookings.view_seat_map", "View Seat Location")}
-      </button>,
+      ...(group.booking_mode === "seat_map"
+        ? [
+            <button
+              key="seat-map"
+              onClick={() =>
+                router.push(
+                  `/${lang}/seat-map?travel=${encodeURIComponent(
+                    group.travel_id
+                  )}&reservation=${encodeURIComponent(group.id)}&view=1`
+                )
+              }
+              className="w-full rounded-2xl bg-zinc-100 px-5 py-3 text-sm font-semibold transition hover:bg-zinc-200 sm:w-auto"
+            >
+              {t("page.my_bookings.view_seat_map", "View Seat Location")}
+            </button>,
+          ]
+        : []),
     ];
 
     if (group.status === "held") {
@@ -247,7 +256,10 @@ export default function MyBookingsPage() {
       return actions;
     }
 
-    if (canChangeSeatForReservation(group.status, group.departure_at)) {
+    if (
+      group.booking_mode === "seat_map" &&
+      canChangeSeatForReservation(group.status, group.departure_at)
+    ) {
       actions.unshift(
         <button
           key="change-seat"

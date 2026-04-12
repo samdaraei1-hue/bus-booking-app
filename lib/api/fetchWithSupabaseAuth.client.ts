@@ -1,17 +1,14 @@
 "use client";
 
-import { supabase } from "@/lib/supabaseClient";
+import { getSafeSession } from "@/lib/auth/getSafeSession.client";
 
 export async function fetchWithSupabaseAuth(
   input: string,
   init: RequestInit = {}
 ) {
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
+  const { session } = await getSafeSession();
 
-  if (error || !session?.access_token) {
+  if (!session?.access_token) {
     return {
       ok: false,
       status: 401,

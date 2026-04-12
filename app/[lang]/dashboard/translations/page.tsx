@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Translation } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
@@ -12,18 +13,107 @@ const LANGS = [
   { code: "de", label: "Deutsch" },
 ] as const;
 
+const NAMESPACE_GROUPS = [
+  {
+    value: "common",
+    title: "Common",
+    description: "Buttons and shared labels used all over the site.",
+  },
+  {
+    value: "navbar",
+    title: "Navbar",
+    description: "Top navigation labels and header texts.",
+  },
+  {
+    value: "footer",
+    title: "Footer",
+    description: "Footer headings, brand text, and social section.",
+  },
+  {
+    value: "page.home",
+    title: "Home Page",
+    description: "Hero, section titles, and CTA texts on the homepage.",
+  },
+  {
+    value: "page.travels",
+    title: "Listing Page",
+    description: "Texts on the trips and programs listing page.",
+  },
+  {
+    value: "page.travel_detail",
+    title: "Detail Page",
+    description: "Labels on the trip or program detail page.",
+  },
+  {
+    value: "page.seat_map",
+    title: "Seat Map",
+    description: "Seat selection, participant count, and seat map helper texts.",
+  },
+  {
+    value: "page.reservation_details",
+    title: "Reservation Details",
+    description: "Passenger and participant details before payment.",
+  },
+  {
+    value: "page.payment",
+    title: "Payment",
+    description: "Payment screen messages and buttons.",
+  },
+  {
+    value: "page.my_bookings",
+    title: "My Bookings",
+    description: "Booking history and booking action labels.",
+  },
+  {
+    value: "page.dashboard",
+    title: "Dashboard",
+    description: "Dashboard labels and management shortcuts.",
+  },
+  {
+    value: "travels",
+    title: "Travel Form",
+    description: "Trip or program create/edit form labels.",
+  },
+  {
+    value: "event",
+    title: "Program Form",
+    description: "Program-specific labels like organizer and venue.",
+  },
+  {
+    value: "travel.type",
+    title: "Offering Types",
+    description: "Trip, event, hiking, camping, and other type labels.",
+  },
+] as const;
+
 type TranslationRow = Translation & {
   entity_id?: string | null;
 };
 
+type TravelListRow = {
+  id: string;
+  name: string | null;
+  kind: string | null;
+  type: string | null;
+  origin: string | null;
+  destination: string | null;
+};
+
+function normalizeText(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
 export default function DashboardTranslationsPage() {
   const params = useParams<{ lang: string }>();
+  const searchParams = useSearchParams();
   const lang = params.lang;
   const t = useT(lang);
 
   const [langFilter, setLangFilter] = useState<string>(lang);
   const [search, setSearch] = useState("");
+  const [entitySearch, setEntitySearch] = useState("");
   const [items, setItems] = useState<TranslationRow[]>([]);
+  const [travels, setTravels] = useState<TravelListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [namespaceInput, setNamespaceInput] = useState("");
   const [keyInput, setKeyInput] = useState("");
@@ -32,48 +122,91 @@ export default function DashboardTranslationsPage() {
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editNamespace, setEditNamespace] = useState<string | null>(null);
   const [editEntityId, setEditEntityId] = useState<string | null>(null);
+  const [namespaceFilter, setNamespaceFilter] = useState<string>(
+    searchParams.get("namespace") ?? ""
+  );
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    void load();
-  }, [langFilter]);
+    const nextNamespace = searchParams.get("namespace") ?? "";
+    setNamespaceFilter(nextNamespace);
+  }, [searchParams]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setMsg(null);
 
     try {
-      const { data, error } = await supabase
-        .from("translations")
-        .select("namespace, key, lang, value, entity_id")
-        .eq("lang", langFilter)
-        .order("namespace", { ascending: true })
-        .order("key", { ascending: true });
+      const [{ data: translationsData, error: translationsError }, { data: travelsData, error: travelsError }] =
+        await Promise.all([
+          supabase
+            .from("translations")
+            .select("namespace, key, lang, value, entity_id")
+            .eq("lang", langFilter)
+            .order("namespace", { ascending: true })
+            .order("key", { ascending: true }),
+          supabase
+            .from("travels")
+            .select("id, name, kind, type, origin, destination")
+            .order("departure_at", { ascending: false }),
+        ]);
 
-      if (error) throw error;
-      setItems((data ?? []) as TranslationRow[]);
+      if (translationsError) throw translationsError;
+      if (travelsError) throw travelsError;
+
+      setItems((translationsData ?? []) as TranslationRow[]);
+      setTravels((travelsData ?? []) as TravelListRow[]);
     } catch (error) {
       console.error(error);
       setItems([]);
+      setTravels([]);
       setMsg(error instanceof Error ? error.message : "Failed to load translations");
     } finally {
       setLoading(false);
     }
-  };
+  }, [langFilter]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return items;
 
-    return items.filter((item) =>
-      [item.namespace, item.key, item.value, item.entity_id]
+    return items.filter((item) => {
+      if (namespaceFilter && item.namespace !== namespaceFilter) return false;
+      if (!needle) return true;
+
+      return [item.namespace, item.key, item.value, item.entity_id]
         .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(needle))
+        .some((value) => value!.toLowerCase().includes(needle));
+    });
+  }, [items, namespaceFilter, search]);
+
+  const entityResults = useMemo(() => {
+    const needle = entitySearch.trim().toLowerCase();
+    if (!needle) return travels.slice(0, 12);
+
+    return travels.filter((travel) =>
+      [travel.name, travel.origin, travel.destination, travel.kind, travel.type]
+        .filter(Boolean)
+        .some((value) => normalizeText(value).includes(needle))
     );
-  }, [items, search]);
+  }, [entitySearch, travels]);
 
   const resetForm = () => {
     setNamespaceInput("");
+    setKeyInput("");
+    setEntityIdInput("");
+    setValueInput("");
+    setEditKey(null);
+    setEditNamespace(null);
+    setEditEntityId(null);
+  };
+
+  const openCreateFromGroup = (namespace: string) => {
+    setNamespaceFilter(namespace);
+    setNamespaceInput(namespace);
     setKeyInput("");
     setEntityIdInput("");
     setValueInput("");
@@ -145,14 +278,27 @@ export default function DashboardTranslationsPage() {
         <h1 className="text-2xl font-extrabold tracking-tight text-zinc-950 sm:text-3xl">
           {t("page.dashboard.translations", "Manage Translations")}
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
-          {t("page.dashboard.translations_desc", "Multilingual site texts")}
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+          {t(
+            "page.dashboard.translations_desc",
+            "Find broken UI texts faster, then jump directly to item-specific translations for travel and program data."
+          )}
         </p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_360px]">
-        <section className="page-card p-4 sm:p-6">
-          <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-[220px_1fr]">
+      <section className="page-card mb-6 p-4 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="text-lg font-extrabold text-zinc-900">
+              UI Translation Finder
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-zinc-600">
+              Pick a page area first, then search inside that section. This is much
+              easier than guessing the exact namespace and key from memory.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
             <select
               value={langFilter}
               onChange={(event) => setLangFilter(event.target.value)}
@@ -169,9 +315,133 @@ export default function DashboardTranslationsPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="namespace / key / value / entity id"
+              placeholder="Search by text, namespace, key, or entity id"
               className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
             />
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {NAMESPACE_GROUPS.map((group) => {
+            const isActive = namespaceFilter === group.value;
+
+            return (
+              <button
+                key={group.value}
+                type="button"
+                onClick={() => openCreateFromGroup(group.value)}
+                className={`rounded-3xl border p-4 text-start transition ${
+                  isActive
+                    ? "border-zinc-900 bg-zinc-900 text-white"
+                    : "border-zinc-200 bg-zinc-50/70 text-zinc-900 hover:bg-zinc-100"
+                }`}
+              >
+                <div className="text-sm font-bold">{group.title}</div>
+                <div
+                  className={`mt-2 text-xs ${
+                    isActive ? "text-zinc-200" : "text-zinc-500"
+                  }`}
+                >
+                  {group.description}
+                </div>
+                <div
+                  className={`mt-3 text-xs font-semibold ${
+                    isActive ? "text-zinc-300" : "text-zinc-400"
+                  }`}
+                >
+                  {group.value}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700">
+            {namespaceFilter ? `Filtered: ${namespaceFilter}` : "Showing all namespaces"}
+          </div>
+          {namespaceFilter ? (
+            <button
+              type="button"
+              onClick={() => setNamespaceFilter("")}
+              className="rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-200"
+            >
+              Clear filter
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="page-card mb-6 p-4 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="text-lg font-extrabold text-zinc-900">
+              Content Translation Editor
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-zinc-600">
+              Travel and program names, origins, destinations, and descriptions are
+              stored per item. Search the item here and open its dedicated translation
+              editor.
+            </p>
+          </div>
+
+          <input
+            value={entitySearch}
+            onChange={(event) => setEntitySearch(event.target.value)}
+            placeholder="Search travel or program name"
+            className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
+          />
+        </div>
+
+        <div className="mt-5 grid gap-3">
+          {entityResults.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-zinc-200 p-6 text-sm text-zinc-500">
+              No matching trips or programs found.
+            </div>
+          ) : (
+            entityResults.map((travel) => (
+              <div
+                key={travel.id}
+                className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-zinc-900">
+                    {travel.name || travel.id}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    {[travel.origin, travel.destination].filter(Boolean).join(" / ") || "-"}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-400">
+                    {travel.kind || travel.type || "travel"}
+                  </div>
+                </div>
+
+                <Link
+                  href={`/${lang}/dashboard/travels/${travel.id}/translations`}
+                  className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                >
+                  Open item translations
+                </Link>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+        <section className="page-card p-4 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-extrabold text-zinc-900">
+                Matching UI Texts
+              </h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                Edit existing translations or create missing ones for the selected section.
+              </p>
+            </div>
+            <div className="rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700">
+              {filtered.length} result{filtered.length === 1 ? "" : "s"}
+            </div>
           </div>
 
           {loading ? (
@@ -185,7 +455,7 @@ export default function DashboardTranslationsPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-200 p-8 text-center text-sm text-zinc-500">
-              No translations found.
+              No translations found for this filter. Use the form to create the missing text.
             </div>
           ) : (
             <div className="space-y-3">
@@ -249,6 +519,9 @@ export default function DashboardTranslationsPage() {
               ? t("page.admin.translations.edit", "Edit")
               : t("page.admin.translations.create", "Create")}
           </h2>
+          <p className="mt-2 text-sm text-zinc-500">
+            If a text is missing entirely, pick the page area on the left first, then add the key here.
+          </p>
 
           <div className="mt-5 space-y-4">
             <div>
@@ -270,9 +543,6 @@ export default function DashboardTranslationsPage() {
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-xs text-zinc-500">
-                New records are saved with this language.
-              </p>
             </div>
 
             <div>
@@ -321,7 +591,7 @@ export default function DashboardTranslationsPage() {
                 value={entityIdInput}
                 onChange={(event) => setEntityIdInput(event.target.value)}
                 className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
-                placeholder="optional for travel-specific translation"
+                placeholder="Leave empty for UI text"
                 disabled={editEntityId !== null}
               />
             </div>

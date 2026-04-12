@@ -9,7 +9,7 @@ import { getSeatLabelValue } from "@/lib/seatLabels";
 
 type ReservationItemForm = {
   id: string;
-  layout_seat_id: string;
+  layout_seat_id: string | null;
   label: string;
   passenger_name: string;
   passenger_email: string;
@@ -49,8 +49,8 @@ export default function ReservationDetailsPage() {
           .select(
             `
               id,
-              layout_seat_id,
-              passenger_name,
+          layout_seat_id,
+          passenger_name,
               passenger_email,
               passenger_phone,
               layout_seats:layout_seat_id(label, seat_key),
@@ -64,7 +64,7 @@ export default function ReservationDetailsPage() {
 
         const rows = (data ?? []) as Array<{
           id: string;
-          layout_seat_id: string;
+          layout_seat_id: string | null;
           passenger_name: string | null;
           passenger_email: string | null;
           passenger_phone: string | null;
@@ -75,10 +75,12 @@ export default function ReservationDetailsPage() {
         }>;
 
         setItems(
-          rows.map((row) => ({
+          rows.map((row, index) => ({
             id: row.id,
             layout_seat_id: row.layout_seat_id,
-            label: getSeatLabelValue(row.layout_seats),
+            label:
+              getSeatLabelValue(row.layout_seats) ||
+              `${t("page.reservation_details.participant", "Participant")} ${index + 1}`,
             passenger_name: row.passenger_name ?? "",
             passenger_email: row.passenger_email ?? "",
             passenger_phone: row.passenger_phone ?? "",
@@ -104,7 +106,7 @@ export default function ReservationDetailsPage() {
     return () => {
       mounted = false;
     };
-  }, [reservationId]);
+  }, [reservationId, t]);
 
   const canContinue = useMemo(
     () =>
@@ -232,8 +234,9 @@ export default function ReservationDetailsPage() {
             className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200"
           >
             <h2 className="text-lg font-bold text-zinc-900">
-              {t("page.reservation_details.seat_number", "Seat Number")}{" "}
-              {item.label || "-"}
+              {item.layout_seat_id
+                ? `${t("page.reservation_details.seat_number", "Seat Number")} ${item.label || "-"}`
+                : item.label}
             </h2>
 
             <div className="mt-4 grid gap-4 md:grid-cols-3">

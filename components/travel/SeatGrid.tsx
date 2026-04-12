@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { LayoutSeat } from "@/lib/types";
+import { useT } from "@/lib/translations/useT.client";
 
 export default function SeatGrid({
   seats,
@@ -10,6 +11,7 @@ export default function SeatGrid({
   readOnly = false,
   maxSelection,
   onChange,
+  lang,
 }: {
   seats: LayoutSeat[];
   unavailableSeatIds: string[];
@@ -17,7 +19,9 @@ export default function SeatGrid({
   readOnly?: boolean;
   maxSelection?: number;
   onChange: (seatIds: string[]) => void;
+  lang: string;
 }) {
+  const t = useT(lang);
   const [selected, setSelected] = useState<string[]>(initialSelectedSeatIds);
 
   useEffect(() => {
@@ -98,9 +102,9 @@ export default function SeatGrid({
             <div>{seat.label}</div>
             <div className="mt-1 text-[11px] font-medium opacity-80">
               {isUnavailable && seat.is_selectable === false
-                ? "Locked"
+                ? t("common.locked", "Locked")
                 : isVip
-                ? "VIP"
+                ? t("common.vip", "VIP")
                 : seat.seat_key}
             </div>
           </button>

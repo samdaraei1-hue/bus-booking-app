@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { withTimeout } from "@/lib/async/withTimeout";
+import { getSafeSession } from "@/lib/auth/getSafeSession.client";
 
 export type Viewer = {
   id: string;
@@ -29,12 +30,8 @@ export function useViewer() {
 
     try {
       const {
-        data: { session },
-      } = await withTimeout(
-        supabase.auth.getSession(),
-        3000,
-        "Loading current session timed out"
-      );
+        session,
+      } = await withTimeout(getSafeSession(), 3000, "Loading current session timed out");
       const user = session?.user ?? null;
 
       if (requestId !== requestIdRef.current) return;
@@ -117,11 +114,6 @@ export function useViewer() {
       resumeTimer = setTimeout(() => {
         void loadViewer();
       }, 250);
-    };
-
-    const handleVisibilityChange = async () => {
-      if (!mounted || document.visibilityState === "hidden") return;
-      await loadViewer();
     };
 
     window.addEventListener("pageshow", handlePageShow);

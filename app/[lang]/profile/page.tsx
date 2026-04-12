@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
+import { getSafeSession } from "@/lib/auth/getSafeSession.client";
 
 type Profile = {
   id: string;
@@ -36,9 +37,7 @@ export default function ProfilePage() {
       setMsg(null);
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const { session } = await getSafeSession();
         const user = session?.user ?? null;
 
         if (!mounted) return;
@@ -92,9 +91,7 @@ export default function ProfilePage() {
   const save = async () => {
     setMsg(null);
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const { session } = await getSafeSession();
     const user = session?.user ?? null;
 
     if (!user) {

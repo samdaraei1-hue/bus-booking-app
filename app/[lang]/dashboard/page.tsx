@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
+import { getSafeSession } from "@/lib/auth/getSafeSession.client";
 
 type Viewer = {
   businessRole: string | null;
@@ -25,9 +26,7 @@ export default function DashboardPage() {
 
     (async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const { session } = await getSafeSession();
         const user = session?.user ?? null;
 
         if (!mounted) return;
