@@ -44,6 +44,7 @@ export default function CreateTravelPage() {
   const [returnAt, setReturnAt] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
+  const [paymentInstructions, setPaymentInstructions] = useState("");
   const [leaders, setLeaders] = useState<string[]>([]);
   const [drivers, setDrivers] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -128,6 +129,7 @@ export default function CreateTravelPage() {
         return_at: returnAt || null,
         price: price ? parseFloat(price) : 0,
         description,
+        payment_instructions: paymentInstructions.trim() || null,
         image_url: imageUrl,
       })
       .select()
@@ -357,6 +359,22 @@ export default function CreateTravelPage() {
               className="w-full rounded-xl border border-zinc-200 p-3"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="payment-instructions" className="mb-1 block text-sm text-zinc-600">
+              {t("travels.payment_instructions", "Payment instructions")}
+            </label>
+            <textarea
+              id="payment-instructions"
+              className="min-h-28 w-full rounded-xl border border-zinc-200 p-3"
+              value={paymentInstructions}
+              onChange={(event) => setPaymentInstructions(event.target.value)}
+              placeholder={t(
+                "travels.payment_instructions_placeholder",
+                "Pay 22 EUR using this PayPal link: https://... then click the payment confirmation button."
+              )}
             />
           </div>
 

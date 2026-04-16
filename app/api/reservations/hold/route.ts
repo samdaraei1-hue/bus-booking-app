@@ -97,6 +97,45 @@ export async function POST(request: Request) {
     }
 
     if (bookingMode === "capacity_only") {
+      const { data: reservationRows, error: reservationsError } = await supabase
+        .from("reservation_items")
+        .select(
+          "layout_seat_id, reservation_groups:reservation_group_id(status, expires_at)"
+        )
+        .eq("reservation_groups.travel_id", travelId);
+
+      if (reservationsError) {
+        return NextResponse.json(
+          { error: reservationsError.message },
+          { status: 400 }
+        );
+      }
+
+      const reservedCount = ((reservationRows ?? []) as unknown as ReservationItemRow[]).filter(
+        (row) => {
+          const reservationGroup = row.reservation_groups;
+          return (
+            reservationGroup &&
+            isReservationActive(
+              reservationGroup.status,
+              reservationGroup.expires_at
+            )
+          );
+        }
+      ).length;
+
+      const remainingCapacity = Math.max(
+        0,
+        (Number(travel.max_capacity) || 0) - reservedCount
+      );
+
+      if (participantCount > remainingCapacity) {
+        return NextResponse.json(
+          { error: "Participant count exceeds remaining capacity." },
+          { status: 409 }
+        );
+      }
+
       const { data: reservationGroup, error: groupError } = await supabase
         .from("reservation_groups")
         .insert({

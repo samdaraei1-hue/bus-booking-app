@@ -430,11 +430,11 @@ export default function DashboardReservationsPage() {
             >
               {t("dashboard.reservations.search", "Search")}
             </label>
-            <input
+              <input
               id="reservation-search"
               value={search}
               onChange={handleSearchChange}
-              placeholder="travel / passenger / booker / seat"
+              placeholder="travel / participant / booker / seat"
               className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
             />
           </div>
@@ -612,7 +612,7 @@ export default function DashboardReservationsPage() {
                         <div className="min-w-0">
                           <div className="font-semibold text-zinc-900">
                             {seat.passenger_name ||
-                              t("dashboard.reservations.no_name", "No passenger name")}
+                              t("dashboard.reservations.no_name", "No participant name")}
                           </div>
                           <div className="mt-1 break-all text-sm text-zinc-600">
                             {seat.passenger_email || seat.passenger_phone || "-"}

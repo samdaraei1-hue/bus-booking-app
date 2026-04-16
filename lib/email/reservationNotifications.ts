@@ -49,7 +49,8 @@ export async function sendReservationStatusEmail(
           name,
           origin,
           destination,
-          departure_at
+          departure_at,
+          payment_instructions
         ),
         reservation_items (
           status,
@@ -78,6 +79,7 @@ export async function sendReservationStatusEmail(
           origin?: string | null;
           destination?: string | null;
           departure_at?: string | null;
+          payment_instructions?: string | null;
         }
       | null;
     reservation_items?: Array<{
@@ -112,6 +114,7 @@ export async function sendReservationStatusEmail(
     travelName: row.travels?.name?.trim() || "Reservation",
     routeLabel,
     departureAt: row.travels?.departure_at ?? null,
+    paymentInstructions: row.travels?.payment_instructions ?? null,
     seats,
     status: row.status,
     trigger,

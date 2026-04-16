@@ -14,7 +14,7 @@ import { getSafeSession } from "@/lib/auth/getSafeSession.client";
 import { getBookingMode } from "@/lib/offerings";
 
 type ReservationItemRow = {
-  layout_seat_id: string;
+  layout_seat_id: string | null;
   reservation_groups: {
     status: string;
     expires_at: string | null;
@@ -58,6 +58,7 @@ export default function SeatMapPage() {
   const [bookingMode, setBookingMode] = useState<"seat_map" | "capacity_only">("seat_map");
   const [participantCount, setParticipantCount] = useState(1);
   const [seatLimit, setSeatLimit] = useState<number | null>(null);
+  const [remainingCapacity, setRemainingCapacity] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [gridSeed, setGridSeed] = useState("default");
@@ -83,8 +84,8 @@ export default function SeatMapPage() {
 
         if (!mounted) return;
 
-        if (travelError) {
-          setMsg(travelError.message);
+        if (travelError || !travelRow) {
+          setMsg(travelError?.message ?? "Travel not found");
           return;
         }
 
@@ -95,14 +96,61 @@ export default function SeatMapPage() {
         const nextBookingMode = getBookingMode(travel.booking_mode);
         setBookingMode(nextBookingMode);
 
+        const translated = await getTravelTranslations(travel.id, lang);
+        if (!mounted) return;
+
+        const translatedRoute = `${translated.origin ?? travel.origin ?? ""} - ${
+          translated.destination ?? travel.destination ?? ""
+        }`
+          .replace(/\s+-\s+$/, "")
+          .trim();
+
+        setTravelTitle(translated.name ?? (translatedRoute || travel.name || travel.id));
+
         if (nextBookingMode === "capacity_only") {
-          setParticipantCount(Math.max(1, Math.min(Number(travel.max_capacity) || 1, 12)));
+          const { data: reservationRows, error: reservationsError } = await supabase
+            .from("reservation_items")
+            .select(
+              "layout_seat_id, reservation_groups:reservation_group_id(status, expires_at)"
+            )
+            .eq("reservation_groups.travel_id", travelId);
+
+          if (!mounted) return;
+
+          if (reservationsError) {
+            setMsg(reservationsError.message);
+            return;
+          }
+
+          const maxCapacity = Math.max(0, Number(travel.max_capacity) || 0);
+          const reservedCount = ((reservationRows ?? []) as unknown as ReservationItemRow[]).filter(
+            (row) =>
+              row.reservation_groups &&
+              isReservationActive(
+                row.reservation_groups.status,
+                row.reservation_groups.expires_at
+              )
+          ).length;
+
+          const nextRemainingCapacity = Math.max(0, maxCapacity - reservedCount);
+
+          setRemainingCapacity(nextRemainingCapacity);
+          setParticipantCount(nextRemainingCapacity > 0 ? 1 : 0);
           setSeats([]);
           setUnavailableSeatIds([]);
           setViewSeatIds([]);
           setSelectedSeatIds([]);
           setSeatLimit(null);
-          setLoading(false);
+
+          if (maxCapacity > 0 && nextRemainingCapacity === 0) {
+            setMsg(
+              t(
+                "page.seat_map.capacity_full",
+                "This item is currently full."
+              )
+            );
+          }
+
           return;
         }
 
@@ -115,17 +163,6 @@ export default function SeatMapPage() {
           );
           return;
         }
-
-        const translated = await getTravelTranslations(travel.id, lang);
-        if (!mounted) return;
-        const translatedRoute = `${translated.origin ?? travel.origin ?? ""} - ${
-          translated.destination ?? travel.destination ?? ""
-        }`
-          .replace(/\s+-\s+$/, "")
-          .trim();
-        setTravelTitle(
-          translated.name ?? (translatedRoute || travel.name || travel.id)
-        );
 
         const [
           { data: seatRows, error: seatsError },
@@ -186,14 +223,16 @@ export default function SeatMapPage() {
         const blockedSeatIds = new Set<string>();
 
         if (!reservationsError) {
-          ((reservationRows ?? []) as unknown as ReservationItemRow[]).forEach(
-            (row) => {
-              const group = row.reservation_groups;
-              if (group && isReservationActive(group.status, group.expires_at)) {
-                blockedSeatIds.add(row.layout_seat_id);
-              }
+          ((reservationRows ?? []) as unknown as ReservationItemRow[]).forEach((row) => {
+            const group = row.reservation_groups;
+            if (
+              row.layout_seat_id &&
+              group &&
+              isReservationActive(group.status, group.expires_at)
+            ) {
+              blockedSeatIds.add(row.layout_seat_id);
             }
-          );
+          });
         }
 
         if (!locksError) {
@@ -205,15 +244,18 @@ export default function SeatMapPage() {
         }
 
         if (!selectedReservationError) {
-          const selectedIds = (selectedReservationRows ?? []).map(
-            (row) => row.layout_seat_id as string
-          );
+          const selectedIds = (selectedReservationRows ?? [])
+            .map((row) => row.layout_seat_id as string | null)
+            .filter((seatId): seatId is string => Boolean(seatId));
+
           setViewSeatIds(selectedIds);
+
           if (isChangeMode) {
             setSelectedSeatIds(selectedIds);
             setSeatLimit(selectedIds.length);
             setGridSeed(selectedIds.join(","));
           }
+
           selectedIds.forEach((seatId) => blockedSeatIds.delete(seatId));
         }
 
@@ -238,9 +280,7 @@ export default function SeatMapPage() {
         setUnavailableSeatIds(Array.from(blockedSeatIds));
       } catch (error) {
         if (!mounted) return;
-        setMsg(
-          error instanceof Error ? error.message : "Failed to load seat map"
-        );
+        setMsg(error instanceof Error ? error.message : "Failed to load seat map");
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -250,47 +290,47 @@ export default function SeatMapPage() {
     return () => {
       mounted = false;
     };
-  }, [isChangeMode, lang, reservationId, router, t, travelId]);
+  }, [isChangeMode, lang, reservationId, t, travelId]);
 
   useEffect(() => {
-    if (isViewMode || isChangeMode || !travelId) return;
+    if (isViewMode || isChangeMode || !travelId || bookingMode === "capacity_only") {
+      return;
+    }
 
-    const restorePendingSelection = () => {
-      const idsFromQuery = pendingSelectionParam
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
+    const idsFromQuery = pendingSelectionParam
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
 
-      let ids = idsFromQuery;
+    let ids = idsFromQuery;
 
-      if (!ids.length) {
-        try {
-          const raw = window.sessionStorage.getItem(PENDING_SELECTION_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw) as {
-              travelId?: string;
-              seatIds?: string[];
-            };
-            if (parsed.travelId === travelId && Array.isArray(parsed.seatIds)) {
-              ids = parsed.seatIds.filter(Boolean);
-            }
+    if (!ids.length) {
+      try {
+        const raw = window.sessionStorage.getItem(PENDING_SELECTION_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as {
+            travelId?: string;
+            seatIds?: string[];
+          };
+          if (parsed.travelId === travelId && Array.isArray(parsed.seatIds)) {
+            ids = parsed.seatIds.filter(Boolean);
           }
-        } catch (error) {
-          console.error("Failed to restore pending seat selection", error);
         }
+      } catch (error) {
+        console.error("Failed to restore pending seat selection", error);
       }
+    }
 
-      if (ids.length) {
-        setSelectedSeatIds(ids);
-        setGridSeed(ids.join(","));
-      }
-    };
-
-    restorePendingSelection();
-  }, [isChangeMode, isViewMode, pendingSelectionParam, travelId]);
+    if (ids.length) {
+      setSelectedSeatIds(ids);
+      setGridSeed(ids.join(","));
+    }
+  }, [bookingMode, isChangeMode, isViewMode, pendingSelectionParam, travelId]);
 
   useEffect(() => {
-    if (isViewMode || isChangeMode || !travelId) return;
+    if (isViewMode || isChangeMode || !travelId || bookingMode === "capacity_only") {
+      return;
+    }
 
     try {
       if (selectedSeatIds.length) {
@@ -304,21 +344,19 @@ export default function SeatMapPage() {
     } catch (error) {
       console.error("Failed to persist pending seat selection", error);
     }
-  }, [isChangeMode, isViewMode, selectedSeatIds, travelId]);
+  }, [bookingMode, isChangeMode, isViewMode, selectedSeatIds, travelId]);
 
   const canContinue =
     !isViewMode &&
-    selectedSeatIds.length > 0 &&
     !!travelId &&
     (bookingMode === "capacity_only"
-      ? participantCount > 0
+      ? participantCount > 0 && (remainingCapacity === null || participantCount <= remainingCapacity)
       : (!seatLimit || selectedSeatIds.length === seatLimit) && selectedSeatIds.length > 0);
+
   const selectedSeatsLabel = useMemo(
     () =>
       seats
-        .filter((seat) =>
-          (isViewMode ? viewSeatIds : selectedSeatIds).includes(seat.id)
-        )
+        .filter((seat) => (isViewMode ? viewSeatIds : selectedSeatIds).includes(seat.id))
         .map((seat) => seat.label)
         .join(", "),
     [isViewMode, seats, selectedSeatIds, viewSeatIds]
@@ -331,9 +369,11 @@ export default function SeatMapPage() {
     const user = session?.user ?? null;
 
     if (!user) {
-      const next = `/${lang}/seat-map?travel=${encodeURIComponent(
-        travelId
-      )}&selected=${encodeURIComponent(selectedSeatIds.join(","))}`;
+      const next = `/${lang}/seat-map?travel=${encodeURIComponent(travelId)}${
+        bookingMode === "seat_map" && selectedSeatIds.length
+          ? `&selected=${encodeURIComponent(selectedSeatIds.join(","))}`
+          : ""
+      }`;
       router.push(`/${lang}/login?next=${encodeURIComponent(next)}`);
       return;
     }
@@ -356,10 +396,10 @@ export default function SeatMapPage() {
       return;
     }
 
-    const reservationId =
+    const nextReservationId =
       (response.data as { reservationId?: string } | null)?.reservationId ?? "";
 
-    if (!reservationId) {
+    if (!nextReservationId) {
       setMsg("Failed to create reservation hold");
       return;
     }
@@ -369,7 +409,7 @@ export default function SeatMapPage() {
     } catch {}
 
     router.push(
-      `/${lang}/reservation-details?reservation=${encodeURIComponent(reservationId)}`
+      `/${lang}/reservation-details?reservation=${encodeURIComponent(nextReservationId)}`
     );
   };
 
@@ -449,18 +489,32 @@ export default function SeatMapPage() {
                   "This item does not use seat selection. Choose how many people you want to register."
                 )}
               </p>
+              {remainingCapacity !== null ? (
+                <p className="mt-2 text-sm font-semibold text-zinc-700">
+                  {t("page.seat_map.remaining_capacity", "Remaining capacity")}:{" "}
+                  <span className="font-bold text-rose-600">{remainingCapacity}</span>
+                </p>
+              ) : null}
             </div>
 
             <div className="mb-6 max-w-xs">
               <input
                 type="number"
-                min={1}
-                max={12}
+                min={remainingCapacity === 0 ? 0 : 1}
+                max={remainingCapacity ?? undefined}
                 value={participantCount}
-                onChange={(event) =>
-                  setParticipantCount(Math.max(1, Math.min(12, Number(event.target.value) || 1)))
-                }
-                className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4"
+                disabled={remainingCapacity === 0}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value) || 0;
+                  const maxAllowed = remainingCapacity ?? nextValue;
+                  setParticipantCount(
+                    Math.max(
+                      maxAllowed === 0 ? 0 : 1,
+                      Math.min(maxAllowed, nextValue)
+                    )
+                  );
+                }}
+                className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 transition focus:ring-4 disabled:cursor-not-allowed disabled:bg-zinc-100"
               />
             </div>
 
@@ -490,85 +544,85 @@ export default function SeatMapPage() {
           </>
         ) : (
           <>
-        <div className="mb-4 text-center text-xs font-bold tracking-wide text-zinc-500">
-          {t("page.seat_map.bus_back", "Back of Bus")}
-        </div>
+            <div className="mb-4 text-center text-xs font-bold tracking-wide text-zinc-500">
+              {t("page.seat_map.bus_back", "Back of Bus")}
+            </div>
 
-        <div className="mb-4 flex items-center justify-between">
-          <div className="text-sm font-semibold text-zinc-700">
-            {t("page.seat_map.bus_map")}
-          </div>
-          <div className="text-sm text-zinc-600">
-            {t("page.seat_map.selected_count")}:{" "}
-            <span className="font-bold">
-              {isViewMode ? viewSeatIds.length : selectedSeatIds.length}
-            </span>
-          </div>
-        </div>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm font-semibold text-zinc-700">
+                {t("page.seat_map.bus_map")}
+              </div>
+              <div className="text-sm text-zinc-600">
+                {t("page.seat_map.selected_count")}:{" "}
+                <span className="font-bold">
+                  {isViewMode ? viewSeatIds.length : selectedSeatIds.length}
+                </span>
+              </div>
+            </div>
 
-        <div className="mb-4 flex flex-wrap gap-2 text-xs font-semibold text-zinc-700">
-          <span className="rounded-full bg-zinc-100 px-3 py-1">
-            {t("common.standard", "Standard")}
-          </span>
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">
-            {t("common.vip", "VIP")}
-          </span>
-          <span className="rounded-full bg-zinc-300 px-3 py-1 text-zinc-700">
-            {t("common.locked", "Locked")}
-          </span>
-        </div>
+            <div className="mb-4 flex flex-wrap gap-2 text-xs font-semibold text-zinc-700">
+              <span className="rounded-full bg-zinc-100 px-3 py-1">
+                {t("common.standard", "Standard")}
+              </span>
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">
+                {t("common.vip", "VIP")}
+              </span>
+              <span className="rounded-full bg-zinc-300 px-3 py-1 text-zinc-700">
+                {t("common.locked", "Locked")}
+              </span>
+            </div>
 
-        <SeatGrid
-          key={isViewMode ? `view-${reservationId}` : `edit-${gridSeed}`}
-          seats={seats}
-          unavailableSeatIds={unavailableSeatIds}
-          initialSelectedSeatIds={isViewMode ? viewSeatIds : selectedSeatIds}
-          readOnly={isViewMode}
-          maxSelection={seatLimit ?? undefined}
-          onChange={setSelectedSeatIds}
-          lang={lang}
-        />
+            <SeatGrid
+              key={isViewMode ? `view-${reservationId}` : `edit-${gridSeed}`}
+              seats={seats}
+              unavailableSeatIds={unavailableSeatIds}
+              initialSelectedSeatIds={isViewMode ? viewSeatIds : selectedSeatIds}
+              readOnly={isViewMode}
+              maxSelection={seatLimit ?? undefined}
+              onChange={setSelectedSeatIds}
+              lang={lang}
+            />
 
-        {selectedSeatsLabel ? (
-          <div className="mt-4 text-sm text-zinc-600">
-            {t("page.seat_map.selected_label", "Selected")}:
-            <span className="font-semibold"> {selectedSeatsLabel}</span>
-          </div>
-        ) : null}
+            {selectedSeatsLabel ? (
+              <div className="mt-4 text-sm text-zinc-600">
+                {t("page.seat_map.selected_label", "Selected")}:
+                <span className="font-semibold"> {selectedSeatsLabel}</span>
+              </div>
+            ) : null}
 
-        <div className="mt-6 text-center text-xs font-bold tracking-wide text-zinc-500">
-          {t("page.seat_map.bus_front", "Front of Bus")}
-        </div>
+            <div className="mt-6 text-center text-xs font-bold tracking-wide text-zinc-500">
+              {t("page.seat_map.bus_front", "Front of Bus")}
+            </div>
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-2xl bg-zinc-100 px-6 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
-          >
-            {t("common.back")}
-          </button>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="rounded-2xl bg-zinc-100 px-6 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
+              >
+                {t("common.back")}
+              </button>
 
-          {!isViewMode ? (
-            <button
-              type="button"
-              disabled={!canContinue}
-              onClick={() =>
-                void (isChangeMode ? changeSeats() : createHeldReservation())
-              }
-              className={
-                "rounded-2xl px-6 py-3 text-sm font-bold text-white shadow-lg transition " +
-                (canContinue
-                  ? "bg-rose-600 hover:bg-rose-700"
-                  : "cursor-not-allowed bg-zinc-300")
-              }
-            >
-              {isChangeMode
-                ? t("page.seat_map.confirm_change", "Confirm Seat Change")
-                : t("page.seat_map.continue_payment")}
-            </button>
-          ) : null}
-        </div>
+              {!isViewMode ? (
+                <button
+                  type="button"
+                  disabled={!canContinue}
+                  onClick={() =>
+                    void (isChangeMode ? changeSeats() : createHeldReservation())
+                  }
+                  className={
+                    "rounded-2xl px-6 py-3 text-sm font-bold text-white shadow-lg transition " +
+                    (canContinue
+                      ? "bg-rose-600 hover:bg-rose-700"
+                      : "cursor-not-allowed bg-zinc-300")
+                  }
+                >
+                  {isChangeMode
+                    ? t("page.seat_map.confirm_change", "Confirm Seat Change")
+                    : t("page.seat_map.continue_payment")}
+                </button>
+              ) : null}
+            </div>
           </>
         )}
       </div>

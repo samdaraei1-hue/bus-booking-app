@@ -19,6 +19,7 @@ export type Travel = {
   return_at: string;
   price: number | string;
   description: string | null;
+  payment_instructions?: string | null;
   image_url?: string | null;
   layout_id?: string | null;
 };

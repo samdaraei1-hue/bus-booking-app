@@ -19,7 +19,16 @@ export async function POST(
 
     const { data: reservationGroup, error: groupError } = await supabase
       .from("reservation_groups")
-      .select("id, travel_id, status")
+      .select(
+        `
+          id,
+          travel_id,
+          status,
+          travels:travel_id (
+            payment_instructions
+          )
+        `
+      )
       .eq("id", reservationId)
       .eq("booker_user_id", user.id)
       .single();
@@ -34,6 +43,17 @@ export async function POST(
     if (reservationGroup.status !== "awaiting_payment") {
       return NextResponse.json(
         { error: "Reservation is not ready for payment." },
+        { status: 409 }
+      );
+    }
+
+    const travelRelation = reservationGroup.travels;
+    const travel =
+      Array.isArray(travelRelation) ? travelRelation[0] : travelRelation;
+
+    if (travel?.payment_instructions?.trim()) {
+      return NextResponse.json(
+        { error: "Manual payments must be verified before confirmation." },
         { status: 409 }
       );
     }
@@ -54,7 +74,7 @@ export async function POST(
       )
     ) {
       return NextResponse.json(
-        { error: "Passenger details are incomplete." },
+        { error: "Participant details are incomplete." },
         { status: 409 }
       );
     }

@@ -144,7 +144,7 @@ export default function ReservationDetailsPage() {
         setMsg(
           t(
             "page.reservation_details.required_error",
-            "Passenger name and phone are required for every seat."
+            "Participant name and phone are required for every selected item."
           )
         );
         return;
@@ -168,7 +168,7 @@ export default function ReservationDetailsPage() {
       if (!response.ok) {
         throw new Error(
           (response.data as { error?: string } | null)?.error ??
-            "Failed to save passenger information"
+            "Failed to save participant information"
         );
       }
 
@@ -184,7 +184,7 @@ export default function ReservationDetailsPage() {
             ? error.message
             : t(
                 "page.reservation_details.save_failed",
-                "Failed to save passenger information"
+                "Failed to save participant information"
               )
         );
     } finally {
@@ -217,12 +217,12 @@ export default function ReservationDetailsPage() {
     <main className="mx-auto max-w-4xl px-6 py-10">
       <div className="mb-8">
         <h1 className="text-3xl font-extrabold">
-          {t("page.reservation_details.title", "Passenger details")}
+          {t("page.reservation_details.title", "Participant details")}
         </h1>
         <p className="mt-2 text-sm text-zinc-600">
           {t(
             "page.reservation_details.subtitle",
-            "Enter passenger details for each selected seat before payment."
+            "Enter participant details for each selected item before payment."
           )}
         </p>
       </div>
@@ -247,7 +247,7 @@ export default function ReservationDetailsPage() {
                 }
                 placeholder={t(
                   "page.reservation_details.passenger_name",
-                  "Passenger name *"
+                  "Participant name *"
                 )}
                 className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
               />
@@ -258,7 +258,7 @@ export default function ReservationDetailsPage() {
                 }
                 placeholder={t(
                   "page.reservation_details.passenger_email",
-                  "Passenger email"
+                  "Participant email"
                 )}
                 className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
               />
@@ -269,7 +269,7 @@ export default function ReservationDetailsPage() {
                 }
                 placeholder={t(
                   "page.reservation_details.passenger_phone",
-                  "Passenger phone *"
+                  "Participant phone *"
                 )}
                 className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
               />

@@ -12,6 +12,7 @@ type ReservationEmailInput = {
   seats: string[];
   status: ReservationStatus;
   trigger: "group_status" | "seat_status" | "awaiting_payment" | "paid";
+  paymentInstructions?: string | null;
 };
 
 function formatDate(value: string | null, lang: ReservationEmailLang) {
@@ -27,7 +28,7 @@ function formatDate(value: string | null, lang: ReservationEmailLang) {
 function getStatusLabel(status: ReservationStatus, lang: ReservationEmailLang) {
   const labels = {
     fa: {
-      held: "نگه‌داشته شده",
+      held: "نگه داشته شده",
       awaiting_payment: "در انتظار پرداخت",
       paid: "پرداخت شده",
       cancelled: "لغو شده",
@@ -52,6 +53,22 @@ function getStatusLabel(status: ReservationStatus, lang: ReservationEmailLang) {
   return labels[lang][status];
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function formatPaymentInstructionsHtml(value: string) {
+  return escapeHtml(value).replace(
+    /(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noreferrer" style="color:#be123c;text-decoration:underline;">$1</a>'
+  ).replaceAll("\n", "<br />");
+}
+
 function getCopy(input: ReservationEmailInput) {
   const statusLabel = getStatusLabel(input.status, input.lang);
 
@@ -68,9 +85,9 @@ function getCopy(input: ReservationEmailInput) {
           : "وضعیت رزرو شما تغییر کرد",
       intro:
         input.trigger === "awaiting_payment"
-          ? "مشخصات مسافران ثبت شده و رزرو شما آماده پرداخت است."
+          ? "مشخصات شرکت‌کنندگان ثبت شده و رزرو شما آماده پرداخت است."
           : input.trigger === "seat_status"
-          ? "وضعیت یکی یا چند صندلی در رزرو شما به‌روزرسانی شده است."
+          ? "وضعیت یک یا چند صندلی در رزرو شما به‌روزرسانی شده است."
           : input.trigger === "paid"
           ? "رزرو شما نهایی شده و صندلی‌ها با موفقیت ثبت شدند."
           : "وضعیت رزرو شما در سیستم به‌روزرسانی شد.",
@@ -80,6 +97,7 @@ function getCopy(input: ReservationEmailInput) {
       routeLabel: "مسیر / محل",
       departureLabel: "زمان شروع",
       seatsLabel: "صندلی‌ها",
+      paymentInstructionsLabel: "راهنمای پرداخت",
       footer: "اگر این تغییر را انتظار نداشتید، لطفاً با پشتیبانی تماس بگیرید.",
     },
     en: {
@@ -94,7 +112,7 @@ function getCopy(input: ReservationEmailInput) {
           : "Your reservation status has changed",
       intro:
         input.trigger === "awaiting_payment"
-          ? "Passenger details were saved and your reservation is now ready for payment."
+          ? "Participant details were saved and your reservation is now ready for payment."
           : input.trigger === "seat_status"
           ? "One or more seat statuses in your reservation were updated."
           : input.trigger === "paid"
@@ -106,6 +124,7 @@ function getCopy(input: ReservationEmailInput) {
       routeLabel: "Route / Venue",
       departureLabel: "Start time",
       seatsLabel: "Seats",
+      paymentInstructionsLabel: "Payment instructions",
       footer: "If you did not expect this change, please contact support.",
     },
     de: {
@@ -120,7 +139,7 @@ function getCopy(input: ReservationEmailInput) {
           : "Der Status deiner Reservierung hat sich geaendert",
       intro:
         input.trigger === "awaiting_payment"
-          ? "Die Passagierdaten wurden gespeichert und deine Reservierung ist jetzt zahlungsbereit."
+          ? "Die Teilnehmerdaten wurden gespeichert und deine Reservierung ist jetzt zahlungsbereit."
           : input.trigger === "seat_status"
           ? "Der Status eines oder mehrerer Sitze in deiner Reservierung wurde aktualisiert."
           : input.trigger === "paid"
@@ -132,6 +151,7 @@ function getCopy(input: ReservationEmailInput) {
       routeLabel: "Route / Ort",
       departureLabel: "Beginn",
       seatsLabel: "Sitze",
+      paymentInstructionsLabel: "Zahlungshinweise",
       footer: "Wenn du diese Aenderung nicht erwartet hast, kontaktiere bitte den Support.",
     },
   } as const;
@@ -143,6 +163,24 @@ export function buildReservationEmail(input: ReservationEmailInput) {
   const copy = getCopy(input);
   const seats = input.seats.length ? input.seats.join(", ") : "-";
   const departure = formatDate(input.departureAt, input.lang);
+  const paymentInstructions = input.paymentInstructions?.trim() ?? "";
+
+  const rows: Array<{ label: string; value: string; isHtml?: boolean }> = [
+    { label: copy.statusLabel, value: getStatusLabel(input.status, input.lang) },
+    { label: copy.reservationLabel, value: input.reservationId },
+    { label: copy.travelLabel, value: input.travelName },
+    { label: copy.routeLabel, value: input.routeLabel || "-" },
+    { label: copy.departureLabel, value: departure },
+    { label: copy.seatsLabel, value: seats },
+  ];
+
+  if (input.trigger === "awaiting_payment" && paymentInstructions) {
+    rows.push({
+      label: copy.paymentInstructionsLabel,
+      value: formatPaymentInstructionsHtml(paymentInstructions),
+      isHtml: true,
+    });
+  }
 
   const html = `
     <div style="margin:0;padding:32px 16px;background:#f4f4f5;font-family:Arial,sans-serif;color:#18181b;">
@@ -154,27 +192,13 @@ export function buildReservationEmail(input: ReservationEmailInput) {
         </div>
         <div style="padding:28px;">
           <p style="margin:0 0 18px;font-size:15px;line-height:1.8;">${input.name || "Traveler"},</p>
-          <div style="display:grid;gap:12px;">
-            ${[
-              [copy.statusLabel, copy.statusLabel ? copy.statusLabel && copy.statusLabel : "", copy.statusLabel],
-            ]
-              .map(() => "")
-              .join("")}
-          </div>
           <table role="presentation" width="100%" style="border-collapse:collapse;margin-top:10px;">
-            ${[
-              [copy.statusLabel, copy.statusLabel ? getStatusLabel(input.status, input.lang) : ""],
-              [copy.reservationLabel, input.reservationId],
-              [copy.travelLabel, input.travelName],
-              [copy.routeLabel, input.routeLabel || "-"],
-              [copy.departureLabel, departure],
-              [copy.seatsLabel, seats],
-            ]
+            ${rows
               .map(
-                ([label, value]) => `
+                ({ label, value, isHtml }) => `
                   <tr>
-                    <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;width:180px;font-size:13px;color:#71717a;vertical-align:top;">${label}</td>
-                    <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;font-size:14px;font-weight:600;color:#18181b;">${value}</td>
+                    <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;width:180px;font-size:13px;color:#71717a;vertical-align:top;">${escapeHtml(label)}</td>
+                    <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;font-size:14px;font-weight:600;color:#18181b;white-space:pre-wrap;">${isHtml ? value : escapeHtml(value)}</td>
                   </tr>
                 `
               )
@@ -197,6 +221,9 @@ export function buildReservationEmail(input: ReservationEmailInput) {
     `${copy.routeLabel}: ${input.routeLabel || "-"}`,
     `${copy.departureLabel}: ${departure}`,
     `${copy.seatsLabel}: ${seats}`,
+    ...(input.trigger === "awaiting_payment" && paymentInstructions
+      ? [`${copy.paymentInstructionsLabel}: ${paymentInstructions}`]
+      : []),
     copy.footer,
   ].join("\n");
 

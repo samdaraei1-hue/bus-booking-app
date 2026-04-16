@@ -13,11 +13,26 @@ const LANGS = [
   { code: "de", label: "Deutsch" },
 ] as const;
 
-const NAMESPACE_GROUPS = [
+const UI_NAMESPACE_GROUPS = [
   {
     value: "common",
     title: "Common",
     description: "Buttons and shared labels used all over the site.",
+  },
+  {
+    value: "button",
+    title: "Buttons",
+    description: "Generic action labels such as add, edit, and delete.",
+  },
+  {
+    value: "confirm",
+    title: "Confirmations",
+    description: "Confirmation prompts like delete approval.",
+  },
+  {
+    value: "error",
+    title: "Errors",
+    description: "Generic error messages used across forms and pages.",
   },
   {
     value: "navbar",
@@ -35,6 +50,11 @@ const NAMESPACE_GROUPS = [
     description: "Hero, section titles, and CTA texts on the homepage.",
   },
   {
+    value: "page.login",
+    title: "Login Page",
+    description: "Login form labels, help text, and actions.",
+  },
+  {
     value: "page.travels",
     title: "Listing Page",
     description: "Texts on the trips and programs listing page.",
@@ -47,27 +67,57 @@ const NAMESPACE_GROUPS = [
   {
     value: "page.seat_map",
     title: "Seat Map",
-    description: "Seat selection, participant count, and seat map helper texts.",
+    description: "Seat selection, participant count, and helper texts.",
   },
   {
     value: "page.reservation_details",
     title: "Reservation Details",
-    description: "Passenger and participant details before payment.",
+    description: "Participant details before payment.",
   },
   {
     value: "page.payment",
     title: "Payment",
-    description: "Payment screen messages and buttons.",
+    description: "Payment screen messages, instructions, and actions.",
   },
   {
     value: "page.my_bookings",
     title: "My Bookings",
-    description: "Booking history and booking action labels.",
+    description: "Booking history, statuses, and follow-up actions.",
+  },
+  {
+    value: "page.profile",
+    title: "Profile",
+    description: "Profile edit labels and save state texts.",
   },
   {
     value: "page.dashboard",
     title: "Dashboard",
     description: "Dashboard labels and management shortcuts.",
+  },
+  {
+    value: "page.travel_layout",
+    title: "Travel Layout",
+    description: "Seat layout builder and layout editor texts.",
+  },
+  {
+    value: "page.travel_translations",
+    title: "Travel Translations",
+    description: "Dedicated item translation editor texts.",
+  },
+  {
+    value: "page.admin",
+    title: "Admin Translations",
+    description: "Older admin translation screen labels.",
+  },
+  {
+    value: "dashboard.reservations",
+    title: "Reservations Dashboard",
+    description: "Reservation management table filters and statuses.",
+  },
+  {
+    value: "dashboardtravels",
+    title: "Dashboard Travels Table",
+    description: "Column names used in the dashboard travel list.",
   },
   {
     value: "travels",
@@ -84,9 +134,20 @@ const NAMESPACE_GROUPS = [
     title: "Offering Types",
     description: "Trip, event, hiking, camping, and other type labels.",
   },
+  {
+    value: "role",
+    title: "Roles",
+    description: "Role labels and fallback role values.",
+  },
+  {
+    value: "table",
+    title: "Table Labels",
+    description: "Generic table column labels used in the dashboard.",
+  },
 ] as const;
 
 type TranslationRow = Translation & {
+  id?: string;
   entity_id?: string | null;
 };
 
@@ -98,6 +159,19 @@ type TravelListRow = {
   origin: string | null;
   destination: string | null;
 };
+
+type NamespaceGroup = {
+  value: string;
+  title: string;
+  description: string;
+};
+
+function humanizeNamespace(value: string) {
+  return value
+    .replaceAll(".", " / ")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
 function normalizeText(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
@@ -141,7 +215,7 @@ export default function DashboardTranslationsPage() {
         await Promise.all([
           supabase
             .from("translations")
-            .select("namespace, key, lang, value, entity_id")
+            .select("id, namespace, key, lang, value, entity_id")
             .eq("lang", langFilter)
             .order("namespace", { ascending: true })
             .order("key", { ascending: true }),
@@ -182,6 +256,24 @@ export default function DashboardTranslationsPage() {
         .some((value) => value!.toLowerCase().includes(needle));
     });
   }, [items, namespaceFilter, search]);
+
+  const namespaceGroups = useMemo(() => {
+    const baseGroups = [...UI_NAMESPACE_GROUPS];
+    const knownValues = new Set<string>(baseGroups.map((group) => group.value));
+    const dynamicNamespaces = Array.from(
+      new Set(items.map((item) => item.namespace).filter((value) => value && value !== "travel"))
+    )
+      .filter((namespace) => !knownValues.has(namespace))
+      .sort((a, b) => a.localeCompare(b));
+
+    const dynamicGroups: NamespaceGroup[] = dynamicNamespaces.map((namespace) => ({
+      value: namespace,
+      title: humanizeNamespace(namespace),
+      description: "Detected from existing translation records.",
+    }));
+
+    return [...baseGroups, ...dynamicGroups];
+  }, [items]);
 
   const entityResults = useMemo(() => {
     const needle = entitySearch.trim().toLowerCase();
@@ -322,8 +414,9 @@ export default function DashboardTranslationsPage() {
         </div>
 
         <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {NAMESPACE_GROUPS.map((group) => {
+          {namespaceGroups.map((group) => {
             const isActive = namespaceFilter === group.value;
+            const itemCount = items.filter((item) => item.namespace === group.value).length;
 
             return (
               <button
@@ -343,6 +436,13 @@ export default function DashboardTranslationsPage() {
                   }`}
                 >
                   {group.description}
+                </div>
+                <div
+                  className={`mt-2 text-[11px] ${
+                    isActive ? "text-zinc-300" : "text-zinc-400"
+                  }`}
+                >
+                  {itemCount} translation{itemCount === 1 ? "" : "s"}
                 </div>
                 <div
                   className={`mt-3 text-xs font-semibold ${
@@ -459,9 +559,12 @@ export default function DashboardTranslationsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {filtered.map((item) => (
+              {filtered.map((item, index) => (
                 <div
-                  key={`${item.namespace}.${item.key}.${item.entity_id ?? "base"}`}
+                  key={
+                    item.id ??
+                    `${item.namespace}.${item.key}.${item.entity_id ?? "base"}.${item.value}.${index}`
+                  }
                   className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4"
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

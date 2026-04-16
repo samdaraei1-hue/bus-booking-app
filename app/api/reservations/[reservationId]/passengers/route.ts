@@ -86,7 +86,7 @@ export async function POST(
 
       if (!item.id?.trim() || !passengerName || !passengerPhone) {
         return NextResponse.json(
-          { error: "Passenger name and phone are required for every seat." },
+          { error: "Participant name and phone are required for every selected item." },
           { status: 400 }
         );
       }
@@ -139,7 +139,7 @@ export async function POST(
 
     console.error(error);
     return NextResponse.json(
-      { error: "Failed to save passenger details." },
+      { error: "Failed to save participant details." },
       { status: 500 }
     );
   }
