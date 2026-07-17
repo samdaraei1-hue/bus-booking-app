@@ -54,6 +54,21 @@ function toDateTimeLocal(value: string | null) {
   return local.toISOString().slice(0, 16);
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 export default function EditTravelPage() {
   const router = useRouter();
   const params = useParams<{ lang: string; id: string }>();
@@ -247,37 +262,54 @@ export default function EditTravelPage() {
     try {
       const imageUrl = await uploadImage();
 
-      const { error: updateError } = await supabase
-        .from("travels")
-        .update({
-          name,
-          type,
-          kind,
-          booking_mode: bookingMode,
-          max_capacity: isSeatMapBooking ? null : Number(maxCapacity) || null,
-          origin,
-          destination: isEvent ? null : destination,
-          departure_at: departureAt || null,
-          return_at: returnAt || null,
-          price: price ? parseFloat(price) : 0,
-          description,
-          payment_instructions: paymentInstructions.trim() || null,
-          addons: addons
-            .filter((addon) => addon.name.trim())
-            .map((addon, index) => ({
-              id: addon.id,
-              name: addon.name.trim(),
-              description: addon.description?.trim() || null,
-              price: Number(addon.price) || 0,
-              pricing_mode: addon.pricing_mode,
-              is_active: addon.is_active,
-              sort_order: index,
-            })),
-          image_url: imageUrl,
-        })
-        .eq("id", travelId);
+      const travelUpdate = {
+        name,
+        type,
+        kind,
+        booking_mode: bookingMode,
+        max_capacity: isSeatMapBooking ? null : Number(maxCapacity) || null,
+        origin,
+        destination: isEvent ? null : destination,
+        departure_at: departureAt || null,
+        return_at: returnAt || null,
+        price: price ? parseFloat(price) : 0,
+        description,
+        payment_instructions: paymentInstructions.trim() || null,
+        addons: addons
+          .filter((addon) => addon.name.trim())
+          .map((addon, index) => ({
+            id: addon.id,
+            name: addon.name.trim(),
+            description: addon.description?.trim() || null,
+            price: Number(addon.price) || 0,
+            pricing_mode: addon.pricing_mode,
+            is_active: addon.is_active,
+            sort_order: index,
+          })),
+        image_url: imageUrl,
+      };
 
-      if (updateError) throw updateError;
+      const { error: updateError } = await supabase.from("travels").update(travelUpdate).eq("id", travelId);
+
+      if (updateError) {
+        const updateMessage = getErrorMessage(updateError, "");
+
+        if (updateMessage.toLowerCase().includes("addons")) {
+          const { addons: _ignoredAddons, ...travelUpdateWithoutAddons } = travelUpdate;
+          const { error: fallbackError } = await supabase
+            .from("travels")
+            .update(travelUpdateWithoutAddons)
+            .eq("id", travelId);
+
+          if (!fallbackError) {
+            console.warn("Travel updated without addons because the addons column update failed.");
+          } else {
+            throw fallbackError;
+          }
+        } else {
+          throw updateError;
+        }
+      }
 
       const teamRows = [
         ...leaders
@@ -307,7 +339,7 @@ export default function EditTravelPage() {
       router.push(`/${lang}/dashboard/travels`);
     } catch (error) {
       console.error(error);
-      setErrorMsg(error instanceof Error ? error.message : t("error.save_failed", "Failed to save item"));
+      setErrorMsg(getErrorMessage(error, t("error.save_failed", "Failed to save item")));
     } finally {
       setSaving(false);
     }
