@@ -22,14 +22,14 @@ type ReservationAddonForm = {
   addon_id: string;
   name: string;
   description: string | null;
-  price: number;
+  unit_price: number;
   pricing_mode: "per_booking" | "per_participant";
   quantity: number;
 };
 
 type ReservationGroupRow = {
   travel_id: string;
-  status: string;
+  status?: string;
   base_amount: number | null;
   addons_amount: number | null;
   total_amount: number | null;
@@ -44,14 +44,24 @@ type ReservationGroupRow = {
         total_price: number;
       }>
     | null;
-  travels: {
-    id: string;
-    name: string | null;
-    origin: string | null;
-    destination: string | null;
-    price: number | string;
-    addons: unknown;
-  } | null;
+  travels:
+    | {
+        id: string;
+        name: string | null;
+        origin: string | null;
+        destination: string | null;
+        price: number | string;
+        addons: unknown;
+      }
+    | Array<{
+        id: string;
+        name: string | null;
+        origin: string | null;
+        destination: string | null;
+        price: number | string;
+        addons: unknown;
+      }>
+    | null;
 };
 
 export default function ReservationDetailsPage() {
@@ -162,8 +172,10 @@ export default function ReservationDetailsPage() {
           if (!mounted) return;
           if (reservationGroupError) throw reservationGroupError;
 
-          const row = reservationGroupData as ReservationGroupRow;
-          const travelRelation = row.travels;
+          const row = reservationGroupData as unknown as ReservationGroupRow;
+          const travelRelation = Array.isArray(row.travels)
+            ? row.travels[0]
+            : row.travels;
 
           setTravelPrice(Number(travelRelation?.price ?? 0) || 0);
           setTravelAddons(parseTravelAddons(travelRelation?.addons));

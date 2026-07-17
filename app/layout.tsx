@@ -1,15 +1,5 @@
 import "./globals.css";
-import { Inter, Vazirmatn } from "next/font/google";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
-
-const vazirmatn = Vazirmatn({
-  subsets: ["arabic", "latin"],
-  variable: "--font-vazirmatn",
-});
+import "@fontsource/vazirmatn/index.css";
 
 export const metadata = {
   title: "Energy Travel",
@@ -22,10 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fa" >
-      <body className={`${inter.variable} ${vazirmatn.variable}`}>
-        {children}
-      </body>
+    <html lang="fa">
+      <body>{children}</body>
     </html>
   );
 }

@@ -8,6 +8,8 @@
   --primary: #e11d48;
   --primary-dark: #be123c;
   --ring: rgba(225, 29, 72, 0.18);
+  --font-inter: "Inter", "Segoe UI", sans-serif;
+  --font-vazirmatn: "Vazirmatn", "Segoe UI", sans-serif;
 }
 
 html,
