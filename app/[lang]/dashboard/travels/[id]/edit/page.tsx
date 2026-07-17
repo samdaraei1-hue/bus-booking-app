@@ -39,6 +39,17 @@ type TravelRow = {
   addons: unknown;
 };
 
+type TravelAddonRow = {
+  id: string;
+  travel_id: string;
+  name: string;
+  description: string | null;
+  price: number | string;
+  pricing_mode: string | null;
+  is_active: boolean | null;
+  sort_order: number | null;
+};
+
 type TravelAddonForm = TravelAddonDefinition;
 
 function sanitizeFileName(fileName: string) {
@@ -111,7 +122,12 @@ export default function EditTravelPage() {
       setErrorMsg(null);
 
       try {
-        const [{ data: usersData }, { data: travelData, error: travelError }, { data: teamData, error: teamError }] =
+        const [
+          { data: usersData },
+          { data: travelData, error: travelError },
+          { data: teamData, error: teamError },
+          { data: addonData, error: addonError },
+        ] =
           await Promise.all([
             supabase.from("users").select("id,name"),
             supabase.from("travels").select("*").eq("id", travelId).single(),
@@ -119,14 +135,21 @@ export default function EditTravelPage() {
               .from("travel_teams")
               .select("colleague_id, role")
               .eq("travel_id", travelId),
+            supabase
+              .from("travel_addons")
+              .select("id, travel_id, name, description, price, pricing_mode, is_active, sort_order")
+              .eq("travel_id", travelId)
+              .order("sort_order", { ascending: true }),
           ]);
 
         if (!mounted) return;
         if (travelError) throw travelError;
         if (teamError) throw teamError;
+        if (addonError) throw addonError;
 
         const travel = travelData as TravelRow;
         const teams = (teamData ?? []) as TeamRow[];
+        const addonRows = (addonData ?? []) as TravelAddonRow[];
 
         setUsers((usersData ?? []) as SelectUser[]);
         setName(travel.name ?? "");
@@ -141,7 +164,11 @@ export default function EditTravelPage() {
         setPrice(String(travel.price ?? ""));
         setDescription(travel.description ?? "");
         setPaymentInstructions(travel.payment_instructions ?? "");
-        setAddons(parseTravelAddons(travel.addons));
+        setAddons(
+          addonRows.length > 0
+            ? parseTravelAddons(addonRows)
+            : parseTravelAddons(travel.addons)
+        );
         setCurrentImageUrl(travel.image_url ?? null);
         setLeaders(
           teams.filter((item) => item.role === "leader").map((item) => item.colleague_id)
@@ -309,6 +336,34 @@ export default function EditTravelPage() {
         } else {
           throw updateError;
         }
+      }
+
+      const { error: deleteAddonError } = await supabase
+        .from("travel_addons")
+        .delete()
+        .eq("travel_id", travelId);
+
+      if (deleteAddonError) throw deleteAddonError;
+
+      if (addons.length > 0) {
+        const addonRows = addons
+          .filter((addon) => addon.name.trim())
+          .map((addon, index) => ({
+            travel_id: travelId,
+            id: addon.id,
+            name: addon.name.trim(),
+            description: addon.description?.trim() || null,
+            price: Number(addon.price) || 0,
+            pricing_mode: addon.pricing_mode,
+            is_active: addon.is_active,
+            sort_order: index,
+          }));
+
+        const { error: addonSaveError } = await supabase
+          .from("travel_addons")
+          .insert(addonRows);
+
+        if (addonSaveError) throw addonSaveError;
       }
 
       const teamRows = [

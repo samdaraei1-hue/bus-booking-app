@@ -64,6 +64,17 @@ type ReservationGroupRow = {
     | null;
 };
 
+type TravelAddonRow = {
+  id: string;
+  travel_id: string;
+  name: string;
+  description: string | null;
+  price: number | string;
+  pricing_mode: string | null;
+  is_active: boolean | null;
+  sort_order: number | null;
+};
+
 export default function ReservationDetailsPage() {
   const params = useParams<{ lang: string }>();
   const lang = params.lang;
@@ -178,7 +189,6 @@ export default function ReservationDetailsPage() {
             : row.travels;
 
           setTravelPrice(Number(travelRelation?.price ?? 0) || 0);
-          setTravelAddons(parseTravelAddons(travelRelation?.addons));
 
           const nextSelections = Object.fromEntries(
             (row.addon_selections ?? []).map((selection) => [
@@ -187,6 +197,22 @@ export default function ReservationDetailsPage() {
             ])
           );
           setAddonSelections(nextSelections);
+
+          const { data: addonData, error: addonError } = await supabase
+            .from("travel_addons")
+            .select("id, travel_id, name, description, price, pricing_mode, is_active, sort_order")
+            .eq("travel_id", nextTravelId)
+            .order("sort_order", { ascending: true });
+
+          if (!mounted) return;
+          if (addonError) throw addonError;
+
+          const addonRows = (addonData ?? []) as TravelAddonRow[];
+          setTravelAddons(
+            addonRows.length > 0
+              ? parseTravelAddons(addonRows)
+              : parseTravelAddons(travelRelation?.addons)
+          );
         }
       } catch (error) {
         console.error(error);

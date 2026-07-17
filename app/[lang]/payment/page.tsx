@@ -64,6 +64,16 @@ export default function PaymentPage() {
   >([]);
   const usesManualPayment = paymentInstructions.trim().length > 0;
 
+  type ReservationAddonRow = {
+    addon_id: string;
+    name: string;
+    description: string | null;
+    unit_price: number;
+    pricing_mode: "per_booking" | "per_participant";
+    quantity: number;
+    total_price: number;
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -108,19 +118,25 @@ export default function PaymentPage() {
           setBaseAmount(Number(data.base_amount ?? 0) || 0);
           setAddonsAmount(Number(data.addons_amount ?? 0) || 0);
           setTotalAmount(Number(data.total_amount ?? 0) || 0);
-          setAddonSelections(
-            (data.addon_selections ?? []) as Array<{
-              addon_id: string;
-              name: string;
-              description: string | null;
-              unit_price: number;
-              pricing_mode: "per_booking" | "per_participant";
-              quantity: number;
-              total_price: number;
-            }>
-          );
           const relation = data.travels;
           travelData = (Array.isArray(relation) ? relation[0] : relation) ?? null;
+
+          const { data: reservationAddonRows, error: reservationAddonError } =
+            await supabase
+              .from("reservation_addons")
+              .select(
+                "addon_id, name, description, unit_price, pricing_mode, quantity, total_price"
+              )
+              .eq("reservation_group_id", reservationId)
+              .order("created_at", { ascending: true });
+
+          if (!mounted || reservationAddonError) return;
+
+          setAddonSelections(
+            (reservationAddonRows?.length
+              ? reservationAddonRows
+              : data.addon_selections ?? []) as ReservationAddonRow[]
+          );
         } else if (travelId) {
           const { data, error } = await supabase
             .from("travels")

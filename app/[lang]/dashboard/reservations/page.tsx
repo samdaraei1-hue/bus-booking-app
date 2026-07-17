@@ -49,6 +49,17 @@ type ReservationGroupRow = {
         total_price: number;
       }>
     | null;
+  reservation_addons:
+    | Array<{
+        addon_id: string;
+        name: string;
+        description: string | null;
+        unit_price: number;
+        pricing_mode: "per_booking" | "per_participant";
+        quantity: number;
+        total_price: number;
+      }>
+    | null;
   travels: ReservationTravel | null;
   booker: ReservationUser | null;
   reservation_items: Array<{
@@ -158,6 +169,15 @@ export default function DashboardReservationsPage() {
               addons_amount,
               total_amount,
               addon_selections,
+              reservation_addons (
+                addon_id,
+                name,
+                description,
+                unit_price,
+                pricing_mode,
+                quantity,
+                total_price
+              ),
               travels:travel_id (
                 id,
                 name,
@@ -198,7 +218,8 @@ export default function DashboardReservationsPage() {
         setItems(
           rows.map((row) => {
             const translated = travelTranslations[row.travel_id] ?? {};
-            const addonSelections = (row.addon_selections ?? []).map((addon) => ({
+            const addonRows = row.reservation_addons ?? row.addon_selections ?? [];
+            const addonSelections = addonRows.map((addon) => ({
               addon_id: addon.addon_id,
               name: addon.name,
               description: addon.description,

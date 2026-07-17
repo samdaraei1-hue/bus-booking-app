@@ -58,17 +58,31 @@ export async function POST(
       );
     }
 
-    const { data: travel, error: travelError } = await supabase
-      .from("travels")
-      .select("id, price, addons")
-      .eq("id", reservationGroup.travel_id)
-      .single();
+    const [
+      { data: travel, error: travelError },
+      { data: travelAddonRows, error: travelAddonError },
+    ] = await Promise.all([
+      supabase
+        .from("travels")
+        .select("id, price, addons")
+        .eq("id", reservationGroup.travel_id)
+        .single(),
+      supabase
+        .from("travel_addons")
+        .select("id, name, description, price, pricing_mode, is_active, sort_order")
+        .eq("travel_id", reservationGroup.travel_id)
+        .order("sort_order", { ascending: true }),
+    ]);
 
     if (travelError || !travel) {
       return NextResponse.json(
         { error: "Travel not found." },
         { status: 404 }
       );
+    }
+
+    if (travelAddonError) {
+      return NextResponse.json({ error: travelAddonError.message }, { status: 400 });
     }
 
     const { data: dbItems, error: itemsError } = await supabase
@@ -80,9 +94,11 @@ export async function POST(
       return NextResponse.json({ error: itemsError.message }, { status: 400 });
     }
 
-    const travelAddons = parseTravelAddons(travel.addons).filter(
-      (addon) => addon.is_active
-    );
+    const travelAddons = (
+      (travelAddonRows ?? []).length > 0
+        ? parseTravelAddons(travelAddonRows)
+        : parseTravelAddons(travel.addons)
+    ).filter((addon) => addon.is_active);
     const addonInputMap = new Map(
       (body.addons ?? [])
         .map((item) => ({
@@ -216,6 +232,43 @@ export async function POST(
         { error: updateGroupError.message },
         { status: 400 }
       );
+    }
+
+    const { error: deleteAddonRowsError } = await supabase
+      .from("reservation_addons")
+      .delete()
+      .eq("reservation_group_id", reservationId);
+
+    if (deleteAddonRowsError) {
+      return NextResponse.json(
+        { error: deleteAddonRowsError.message },
+        { status: 400 }
+      );
+    }
+
+    if (addonSelections.length > 0) {
+      const reservationAddonRows = addonSelections.map((item) => ({
+        reservation_group_id: reservationId,
+        travel_addon_id: travelAddons.find((addon) => addon.id === item.addon_id)?.id ?? null,
+        addon_id: item.addon_id,
+        name: item.name,
+        description: item.description,
+        unit_price: item.unit_price,
+        pricing_mode: item.pricing_mode,
+        quantity: item.quantity,
+        total_price: item.total_price,
+      }));
+
+      const { error: insertAddonRowsError } = await supabase
+        .from("reservation_addons")
+        .insert(reservationAddonRows);
+
+      if (insertAddonRowsError) {
+        return NextResponse.json(
+          { error: insertAddonRowsError.message },
+          { status: 400 }
+        );
+      }
     }
 
     try {
