@@ -22,6 +22,35 @@ type SeatLockRow = {
   expires_at: string | null;
 };
 
+type ExistingReservationGroupRow = {
+  id: string;
+  status: string;
+  expires_at: string | null;
+  reservation_items: Array<{
+    layout_seat_id: string | null;
+  }>;
+};
+
+function normalizeSeatIds(values: Array<string | null | undefined>) {
+  return values
+    .filter((value): value is string => Boolean(value))
+    .slice()
+    .sort();
+}
+
+function seatListsMatch(
+  left: Array<string | null | undefined>,
+  right: Array<string | null | undefined>
+) {
+  const normalizedLeft = normalizeSeatIds(left);
+  const normalizedRight = normalizeSeatIds(right);
+
+  return (
+    normalizedLeft.length === normalizedRight.length &&
+    normalizedLeft.every((value, index) => value === normalizedRight[index])
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const { supabase, user } = await authenticateRequest(request);
@@ -96,6 +125,54 @@ export async function POST(request: Request) {
       }
     }
 
+    const { data: existingGroups, error: existingGroupsError } = await supabase
+      .from("reservation_groups")
+      .select(
+        `
+          id,
+          status,
+          expires_at,
+          reservation_items (
+            layout_seat_id
+          )
+        `
+      )
+      .eq("travel_id", travelId)
+      .eq("booker_user_id", user.id)
+      .in("status", ["held", "awaiting_payment"])
+      .order("created_at", { ascending: false });
+
+    if (existingGroupsError) {
+      return NextResponse.json(
+        { error: existingGroupsError.message },
+        { status: 400 }
+      );
+    }
+
+    const matchingReservation = ((existingGroups ?? []) as ExistingReservationGroupRow[]).find(
+      (group) => {
+        if (!isReservationActive(group.status, group.expires_at)) {
+          return false;
+        }
+
+        if (bookingMode === "capacity_only") {
+          return group.reservation_items.length === participantCount;
+        }
+
+        return seatListsMatch(
+          group.reservation_items.map((item) => item.layout_seat_id),
+          seatIds
+        );
+      }
+    );
+
+    if (matchingReservation) {
+      return NextResponse.json({
+        reservationId: matchingReservation.id,
+        reused: true,
+      });
+    }
+
     if (bookingMode === "capacity_only") {
       const { data: reservationRows, error: reservationsError } = await supabase
         .from("reservation_items")
@@ -112,16 +189,7 @@ export async function POST(request: Request) {
       }
 
       const reservedCount = ((reservationRows ?? []) as unknown as ReservationItemRow[]).filter(
-        (row) => {
-          const reservationGroup = row.reservation_groups;
-          return (
-            reservationGroup &&
-            isReservationActive(
-              reservationGroup.status,
-              reservationGroup.expires_at
-            )
-          );
-        }
+        (row) => row.reservation_groups?.status === "paid"
       ).length;
 
       const remainingCapacity = Math.max(

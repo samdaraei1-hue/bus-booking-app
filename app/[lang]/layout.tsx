@@ -1,5 +1,6 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import CookieConsentBanner from "@/components/CookieConsentBanner";
 import DocumentDirection from "@/components/DocumentDirection";
 import { fetchTranslationDict } from "@/lib/translations/fetchT.server";
 import { TranslationsProvider } from "@/lib/translations/TranslationsProvider.client";
@@ -21,6 +22,7 @@ export default async function LangLayout({
         <Navbar lang={lang} />
         <main className="pb-8">{children}</main>
         <Footer lang={lang} />
+        <CookieConsentBanner lang={lang} />
       </div>
     </TranslationsProvider>
   );

@@ -7,6 +7,7 @@ import type { Travel } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
 import TravelCard from "@/components/travel/TravelCard";
+import { getTravelSoldOutMap } from "@/lib/travelAvailability.client";
 
 export default function TravelsPage() {
   const params = useParams<{ lang: string }>();
@@ -40,6 +41,7 @@ export default function TravelsPage() {
           rows.map((travel) => travel.id),
           lang
         );
+        const soldOutMap = await getTravelSoldOutMap(rows);
 
         const localized = rows.map((travel: Travel) => {
           const translated = translations[travel.id] ?? {};
@@ -49,6 +51,7 @@ export default function TravelsPage() {
             origin: translated.origin ?? travel.origin,
             destination: translated.destination ?? travel.destination,
             description: translated.description ?? travel.description,
+            sold_out: soldOutMap[travel.id] ?? false,
           };
         });
 

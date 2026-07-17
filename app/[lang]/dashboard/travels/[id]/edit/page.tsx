@@ -6,6 +6,10 @@ import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { getBookingMode, getOfferingKind, type BookingMode, type OfferingKind } from "@/lib/offerings";
+import {
+  parseTravelAddons,
+  type TravelAddonDefinition,
+} from "@/lib/travelAddons";
 
 type SelectUser = {
   id: string;
@@ -32,7 +36,10 @@ type TravelRow = {
   description: string | null;
   payment_instructions: string | null;
   image_url: string | null;
+  addons: unknown;
 };
+
+type TravelAddonForm = TravelAddonDefinition;
 
 function sanitizeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -73,6 +80,7 @@ export default function EditTravelPage() {
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [paymentInstructions, setPaymentInstructions] = useState("");
+  const [addons, setAddons] = useState<TravelAddonForm[]>([]);
   const [leaders, setLeaders] = useState<string[]>([]);
   const [drivers, setDrivers] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -118,6 +126,7 @@ export default function EditTravelPage() {
         setPrice(String(travel.price ?? ""));
         setDescription(travel.description ?? "");
         setPaymentInstructions(travel.payment_instructions ?? "");
+        setAddons(parseTravelAddons(travel.addons));
         setCurrentImageUrl(travel.image_url ?? null);
         setLeaders(
           teams.filter((item) => item.role === "leader").map((item) => item.colleague_id)
@@ -157,6 +166,46 @@ export default function EditTravelPage() {
   };
   const removeDriver = (index: number) => {
     setDrivers((current) => current.filter((_, i) => i !== index));
+  };
+
+  const addAddon = () => {
+    setAddons((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        name: "",
+        description: null,
+        price: 0,
+        pricing_mode: "per_booking",
+        is_active: true,
+        sort_order: current.length,
+      },
+    ]);
+  };
+
+  const updateAddon = (
+    addonId: string,
+    field: keyof TravelAddonForm,
+    value: string | number | boolean
+  ) => {
+    setAddons((current) =>
+      current.map((addon) =>
+        addon.id === addonId
+          ? {
+              ...addon,
+              [field]: value,
+            }
+          : addon
+      )
+    );
+  };
+
+  const removeAddon = (addonId: string) => {
+    setAddons((current) =>
+      current
+        .filter((addon) => addon.id !== addonId)
+        .map((addon, index) => ({ ...addon, sort_order: index }))
+    );
   };
 
   const uploadImage = async () => {
@@ -213,6 +262,17 @@ export default function EditTravelPage() {
           price: price ? parseFloat(price) : 0,
           description,
           payment_instructions: paymentInstructions.trim() || null,
+          addons: addons
+            .filter((addon) => addon.name.trim())
+            .map((addon, index) => ({
+              id: addon.id,
+              name: addon.name.trim(),
+              description: addon.description?.trim() || null,
+              price: Number(addon.price) || 0,
+              pricing_mode: addon.pricing_mode,
+              is_active: addon.is_active,
+              sort_order: index,
+            })),
           image_url: imageUrl,
         })
         .eq("id", travelId);
@@ -459,6 +519,128 @@ export default function EditTravelPage() {
                 "Pay 22 EUR using this PayPal link: https://... then click the payment confirmation button."
               )}
             />
+          </div>
+
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-zinc-900">
+                  {t("travels.addons", "Optional services")}
+                </h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  {t(
+                    "travels.addons_desc",
+                    "These services are shown during booking and added to the final total."
+                  )}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={addAddon}
+                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800"
+              >
+                {t("travels.add_addon", "+ Add service")}
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {addons.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-zinc-200 bg-white px-4 py-5 text-sm text-zinc-500">
+                  {t(
+                    "travels.no_addons",
+                    "No optional services yet. Add anything you want to offer at booking."
+                  )}
+                </div>
+              ) : (
+                addons.map((addon) => (
+                  <div
+                    key={addon.id}
+                    className="rounded-2xl border border-zinc-200 bg-white p-4"
+                  >
+                    <div className="grid gap-3 lg:grid-cols-[1.2fr_120px_160px]">
+                      <input
+                        value={addon.name}
+                        onChange={(event) =>
+                          updateAddon(addon.id, "name", event.target.value)
+                        }
+                        placeholder={t("travels.addon_name", "Service name")}
+                        className="rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={addon.price}
+                        onChange={(event) =>
+                          updateAddon(
+                            addon.id,
+                            "price",
+                            Number(event.target.value) || 0
+                          )
+                        }
+                        placeholder={t("travels.addon_price", "Price")}
+                        className="rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                      />
+                      <select
+                        value={addon.pricing_mode}
+                        onChange={(event) =>
+                          updateAddon(
+                            addon.id,
+                            "pricing_mode",
+                            event.target.value as TravelAddonForm["pricing_mode"]
+                          )
+                        }
+                        className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                      >
+                        <option value="per_booking">
+                          {t("travels.per_booking", "Per booking")}
+                        </option>
+                        <option value="per_participant">
+                          {t("travels.per_participant", "Per participant")}
+                        </option>
+                      </select>
+                    </div>
+
+                    <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_160px]">
+                      <input
+                        value={addon.description ?? ""}
+                        onChange={(event) =>
+                          updateAddon(addon.id, "description", event.target.value)
+                        }
+                        placeholder={t(
+                          "travels.addon_description",
+                          "Short description for users"
+                        )}
+                        className="rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+                      />
+
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-3">
+                        <label className="flex items-center gap-2 text-sm font-semibold text-zinc-700">
+                          <input
+                            type="checkbox"
+                            checked={addon.is_active}
+                            onChange={(event) =>
+                              updateAddon(addon.id, "is_active", event.target.checked)
+                            }
+                            className="h-4 w-4 rounded border-zinc-300 text-rose-600 focus:ring-rose-500"
+                          />
+                          {t("travels.active", "Active")}
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => removeAddon(addon.id)}
+                          className="text-sm font-semibold text-rose-700"
+                        >
+                          {t("common.remove", "Remove")}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">

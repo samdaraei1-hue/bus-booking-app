@@ -119,7 +119,11 @@ export async function POST(
         items.map((item) => item.layout_seat_id as string)
       );
 
-    await sendReservationStatusEmail(supabase, reservationId, "paid");
+    try {
+      await sendReservationStatusEmail(supabase, reservationId, "paid");
+    } catch (error) {
+      console.error("Failed to send paid email", error);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

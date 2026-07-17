@@ -40,6 +40,7 @@ export default function TravelCard({
   const bookingHint = isSeatMapBooking(travel)
     ? t("common.reserve_with_seats", "Seat selection available")
     : t("common.reserve_without_seats", "Direct booking");
+  const isSoldOut = travel.sold_out === true;
 
   return (
     <motion.div
@@ -58,6 +59,11 @@ export default function TravelCard({
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+          {isSoldOut ? (
+            <div className="absolute left-4 top-4 rounded-full bg-red-600 px-4 py-2 text-sm font-extrabold uppercase tracking-wide text-white shadow-lg">
+              {t("common.sold_out", "Sold out")}
+            </div>
+          ) : null}
           <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between gap-3 text-white">
             <span className="rounded-full bg-white/15 px-3 py-1 text-xs backdrop-blur">
               {itemType}

@@ -47,7 +47,11 @@ export async function POST(
       return NextResponse.json({ error: itemsError.message }, { status: 400 });
     }
 
-    await sendReservationStatusEmail(supabase, reservationId, "group_status");
+    try {
+      await sendReservationStatusEmail(supabase, reservationId, "group_status");
+    } catch (error) {
+      console.error("Failed to send group status email", error);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

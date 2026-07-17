@@ -7,6 +7,7 @@ import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
 import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
 import { getSafeSession } from "@/lib/auth/getSafeSession.client";
+import { formatMoney } from "@/lib/travelAddons";
 
 const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
 
@@ -47,6 +48,20 @@ export default function PaymentPage() {
   const [paid, setPaid] = useState(false);
   const [travelTitle, setTravelTitle] = useState("");
   const [paymentInstructions, setPaymentInstructions] = useState("");
+  const [baseAmount, setBaseAmount] = useState(0);
+  const [addonsAmount, setAddonsAmount] = useState(0);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [addonSelections, setAddonSelections] = useState<
+    Array<{
+      addon_id: string;
+      name: string;
+      description: string | null;
+      unit_price: number;
+      pricing_mode: "per_booking" | "per_participant";
+      quantity: number;
+      total_price: number;
+    }>
+  >([]);
   const usesManualPayment = paymentInstructions.trim().length > 0;
 
   useEffect(() => {
@@ -70,6 +85,10 @@ export default function PaymentPage() {
             .from("reservation_groups")
             .select(
               `
+                base_amount,
+                addons_amount,
+                total_amount,
+                addon_selections,
                 travel_id,
                 travels:travel_id (
                   id,
@@ -86,6 +105,20 @@ export default function PaymentPage() {
           if (!mounted || error || !data) return;
 
           nextTravelId = data.travel_id ?? travelId;
+          setBaseAmount(Number(data.base_amount ?? 0) || 0);
+          setAddonsAmount(Number(data.addons_amount ?? 0) || 0);
+          setTotalAmount(Number(data.total_amount ?? 0) || 0);
+          setAddonSelections(
+            (data.addon_selections ?? []) as Array<{
+              addon_id: string;
+              name: string;
+              description: string | null;
+              unit_price: number;
+              pricing_mode: "per_booking" | "per_participant";
+              quantity: number;
+              total_price: number;
+            }>
+          );
           const relation = data.travels;
           travelData = (Array.isArray(relation) ? relation[0] : relation) ?? null;
         } else if (travelId) {
@@ -190,7 +223,39 @@ export default function PaymentPage() {
             </span>{" "}
             {reservationId || "-"}
           </div>
+          {reservationId ? (
+            <div className="mt-3 grid gap-1 sm:grid-cols-3">
+              <div>{t("page.payment.base_amount", "Base amount")}: {formatMoney(baseAmount)}</div>
+              <div>{t("page.payment.addons_amount", "Add-ons")}: {formatMoney(addonsAmount)}</div>
+              <div className="font-bold text-rose-700">
+                {t("page.payment.total_amount", "Total")}: {formatMoney(totalAmount)}
+              </div>
+            </div>
+          ) : null}
         </div>
+
+        {addonSelections.length > 0 ? (
+          <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
+            <div className="text-sm font-semibold text-zinc-900">
+              {t("page.payment.optional_services", "Optional services")}
+            </div>
+            <div className="mt-3 space-y-2 text-sm text-zinc-700">
+              {addonSelections.map((addon) => (
+                <div key={addon.addon_id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-zinc-900">{addon.name}</div>
+                    {addon.description ? (
+                      <div className="text-xs text-zinc-500">{addon.description}</div>
+                    ) : null}
+                  </div>
+                  <div className="text-xs text-zinc-600">
+                    {addon.quantity} x {formatMoney(addon.unit_price)} = {formatMoney(addon.total_price)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {usesManualPayment ? (
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-zinc-800">

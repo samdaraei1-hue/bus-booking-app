@@ -8,6 +8,7 @@ import TravelCard from "@/components/travel/TravelCard";
 import { useT } from "@/lib/translations/useT.client";
 import { useViewer } from "@/lib/auth/useViewer.client";
 import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
+import { getTravelSoldOutMap } from "@/lib/travelAvailability.client";
 
 export default function HomeClient({ lang }: { lang: string }) {
   const t = useT(lang);
@@ -32,6 +33,7 @@ export default function HomeClient({ lang }: { lang: string }) {
           rows.map((travel) => travel.id),
           lang
         );
+        const soldOutMap = await getTravelSoldOutMap(rows);
 
         if (!mounted) return;
         setTravels(
@@ -43,6 +45,7 @@ export default function HomeClient({ lang }: { lang: string }) {
               origin: translated.origin ?? travel.origin,
               destination: translated.destination ?? travel.destination,
               description: translated.description ?? travel.description,
+              sold_out: soldOutMap[travel.id] ?? false,
             };
           })
         );

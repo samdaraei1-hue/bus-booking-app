@@ -124,12 +124,7 @@ export default function SeatMapPage() {
 
           const maxCapacity = Math.max(0, Number(travel.max_capacity) || 0);
           const reservedCount = ((reservationRows ?? []) as unknown as ReservationItemRow[]).filter(
-            (row) =>
-              row.reservation_groups &&
-              isReservationActive(
-                row.reservation_groups.status,
-                row.reservation_groups.expires_at
-              )
+            (row) => row.reservation_groups?.status === "paid"
           ).length;
 
           const nextRemainingCapacity = Math.max(0, maxCapacity - reservedCount);

@@ -41,7 +41,11 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    await sendReservationStatusEmail(supabase, reservationId, "seat_status");
+    try {
+      await sendReservationStatusEmail(supabase, reservationId, "seat_status");
+    } catch (error) {
+      console.error("Failed to send seat status email", error);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

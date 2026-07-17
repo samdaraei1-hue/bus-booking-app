@@ -53,6 +53,16 @@ export default function Footer({ lang }: { lang: string }) {
                 </Link>
               </li>
             )}
+            <li>
+              <Link className="transition hover:text-white" href={`/${lang}/privacy`}>
+                {t("footer.privacy", "Privacy Notice")}
+              </Link>
+            </li>
+            <li>
+              <Link className="transition hover:text-white" href={`/${lang}/cookies`}>
+                {t("footer.cookies", "Cookie Notice")}
+              </Link>
+            </li>
           </ul>
         </div>
 

@@ -45,9 +45,8 @@ export default function LoginPage() {
           redirectTo: `${window.location.origin}/${lang}/login?next=${encodeURIComponent(next)}`,
         },
       });
-
     } catch {
-      setMsg("An unexpected error occurred.");
+      setMsg(t("page.login.unexpected_error", "An unexpected error occurred."));
       setLoading(false);
     }
   };
@@ -64,8 +63,20 @@ export default function LoginPage() {
         },
       });
 
+      setMsg(
+        t(
+          "page.login.magic_link_sent",
+          "Login link sent. Please check your inbox and spam folder."
+        )
+      );
     } catch {
-      setMsg("لینک ورود به ایمیل شما ارسال شد.");
+      setMsg(
+        t(
+          "page.login.magic_link_failed",
+          "Failed to send the login link. Please try again."
+        )
+      );
+    } finally {
       setLoading(false);
     }
   };
@@ -87,7 +98,7 @@ export default function LoginPage() {
 
         <div className="my-6 flex items-center gap-3">
           <div className="h-px flex-1 bg-zinc-200" />
-          <div className="text-xs text-zinc-500">یا</div>
+          <div className="text-xs text-zinc-500">{t("common.or", "Or")}</div>
           <div className="h-px flex-1 bg-zinc-200" />
         </div>
 
@@ -97,7 +108,7 @@ export default function LoginPage() {
         <input
           id="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(event) => setEmail(event.target.value)}
           type="email"
           placeholder="you@example.com"
           className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"

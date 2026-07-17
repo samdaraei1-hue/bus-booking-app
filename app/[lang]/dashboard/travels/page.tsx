@@ -8,6 +8,30 @@ import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
 import { getBookingMode, getOfferingKind } from "@/lib/offerings";
 
+type ReservationItemStatRow = {
+  status: string;
+  reservation_groups:
+    | {
+        travel_id: string;
+      }
+    | Array<{
+        travel_id: string;
+      }>
+    | null;
+};
+
+type LayoutSeatCapacityRow = {
+  layout_id: string;
+  is_selectable: boolean | null;
+};
+
+type TravelStats = {
+  reserved: number;
+  paid: number;
+  capacity: number;
+  available: number;
+};
+
 export default function DashboardTravelsPage() {
   const params = useParams<{ lang: string }>();
   const lang = params.lang;
@@ -18,6 +42,7 @@ export default function DashboardTravelsPage() {
   const [travelTranslations, setTravelTranslations] = useState<
     Record<string, Record<string, string>>
   >({});
+  const [travelStats, setTravelStats] = useState<Record<string, TravelStats>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,24 +55,98 @@ export default function DashboardTravelsPage() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.from("travels").select("*");
-      if (error) {
-        console.error(error);
+      const [
+        { data: travelData, error: travelError },
+        { data: reservationData, error: reservationError },
+        { data: layoutSeatData, error: layoutSeatError },
+      ] = await Promise.all([
+        supabase.from("travels").select("*"),
+        supabase
+          .from("reservation_items")
+          .select("status, reservation_groups:reservation_group_id(travel_id)"),
+        supabase.from("layout_seats").select("layout_id, is_selectable"),
+      ]);
+
+      if (travelError || reservationError || layoutSeatError) {
+        console.error(travelError || reservationError || layoutSeatError);
         setTravels([]);
         setTravelTranslations({});
+        setTravelStats({});
         return;
       }
 
-      setTravels(data || []);
+      const nextTravels = (travelData || []) as Travel[];
+      setTravels(nextTravels);
+
       const translations = await getTravelTranslationsMap(
-        (data || []).map((travel) => travel.id),
+        nextTravels.map((travel) => travel.id),
         lang
       );
       setTravelTranslations(translations);
+
+      const capacityByLayout = new Map<string, number>();
+      for (const seat of (layoutSeatData || []) as LayoutSeatCapacityRow[]) {
+        if (!seat.layout_id || seat.is_selectable === false) continue;
+        capacityByLayout.set(
+          seat.layout_id,
+          (capacityByLayout.get(seat.layout_id) || 0) + 1
+        );
+      }
+
+      const countsByTravel = new Map<
+        string,
+        {
+          reserved: number;
+          paid: number;
+        }
+      >();
+
+      for (const item of (reservationData || []) as unknown as ReservationItemStatRow[]) {
+        const reservationGroup = Array.isArray(item.reservation_groups)
+          ? item.reservation_groups[0]
+          : item.reservation_groups;
+        const travelId = reservationGroup?.travel_id;
+        if (!travelId) continue;
+
+        const current = countsByTravel.get(travelId) ?? {
+          reserved: 0,
+          paid: 0,
+        };
+
+        if (["held", "awaiting_payment", "paid"].includes(item.status)) {
+          current.reserved += 1;
+        }
+
+        if (item.status === "paid") {
+          current.paid += 1;
+        }
+
+        countsByTravel.set(travelId, current);
+      }
+
+      const nextStats: Record<string, TravelStats> = {};
+
+      for (const travel of nextTravels) {
+        const counts = countsByTravel.get(travel.id) ?? { reserved: 0, paid: 0 };
+        const capacity =
+          getBookingMode(travel.booking_mode) === "capacity_only"
+            ? Math.max(0, Number(travel.max_capacity) || 0)
+            : Math.max(0, capacityByLayout.get(travel.layout_id ?? "") || 0);
+
+        nextStats[travel.id] = {
+          reserved: counts.reserved,
+          paid: counts.paid,
+          capacity,
+          available: Math.max(capacity - counts.paid, 0),
+        };
+      }
+
+      setTravelStats(nextStats);
     } catch (error) {
       console.error(error);
       setTravels([]);
       setTravelTranslations({});
+      setTravelStats({});
     } finally {
       setLoading(false);
     }
@@ -109,6 +208,12 @@ export default function DashboardTravelsPage() {
         <div className="space-y-4 lg:hidden">
           {travels.map((travel) => {
             const i18n = travelTranslations[travel.id] || {};
+            const stats = travelStats[travel.id] || {
+              reserved: 0,
+              paid: 0,
+              capacity: 0,
+              available: 0,
+            };
             const localized = {
               name: i18n.name ?? travel.name,
               origin: i18n.origin ?? travel.origin,
@@ -148,6 +253,33 @@ export default function DashboardTravelsPage() {
                   </div>
                   <div className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
                     {travel.price}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200">
+                    <div className="text-zinc-500">
+                      {t("dashboardtravels.reserved", "Reserved")}
+                    </div>
+                    <div className="mt-1 font-bold text-zinc-900">{stats.reserved}</div>
+                  </div>
+                  <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200">
+                    <div className="text-zinc-500">
+                      {t("dashboardtravels.paid", "Paid")}
+                    </div>
+                    <div className="mt-1 font-bold text-emerald-700">{stats.paid}</div>
+                  </div>
+                  <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200">
+                    <div className="text-zinc-500">
+                      {t("dashboardtravels.capacity", "Capacity")}
+                    </div>
+                    <div className="mt-1 font-bold text-zinc-900">{stats.capacity}</div>
+                  </div>
+                  <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200">
+                    <div className="text-zinc-500">
+                      {t("dashboardtravels.available", "Available")}
+                    </div>
+                    <div className="mt-1 font-bold text-rose-700">{stats.available}</div>
                   </div>
                 </div>
 
@@ -213,6 +345,18 @@ export default function DashboardTravelsPage() {
                   {t("page.travel_detail.price", "Price")}
                 </th>
                 <th className="p-3 text-start">
+                  {t("dashboardtravels.reserved", "Reserved")}
+                </th>
+                <th className="p-3 text-start">
+                  {t("dashboardtravels.paid", "Paid")}
+                </th>
+                <th className="p-3 text-start">
+                  {t("dashboardtravels.capacity", "Capacity")}
+                </th>
+                <th className="p-3 text-start">
+                  {t("dashboardtravels.available", "Available")}
+                </th>
+                <th className="p-3 text-start">
                   {t("dashboardtravels.actions", "Action")}
                 </th>
               </tr>
@@ -220,6 +364,12 @@ export default function DashboardTravelsPage() {
             <tbody>
               {travels.map((travel) => {
                 const i18n = travelTranslations[travel.id] || {};
+                const stats = travelStats[travel.id] || {
+                  reserved: 0,
+                  paid: 0,
+                  capacity: 0,
+                  available: 0,
+                };
                 const localized = {
                   name: i18n.name ?? travel.name,
                   origin: i18n.origin ?? travel.origin,
@@ -249,6 +399,10 @@ export default function DashboardTravelsPage() {
                       {new Date(travel.departure_at).toLocaleDateString()}
                     </td>
                     <td className="p-3">{travel.price}</td>
+                    <td className="p-3">{stats.reserved}</td>
+                    <td className="p-3 text-emerald-700">{stats.paid}</td>
+                    <td className="p-3">{stats.capacity}</td>
+                    <td className="p-3 text-rose-700">{stats.available}</td>
                     <td className="p-3">
                       <div className="flex flex-wrap gap-3">
                         <button

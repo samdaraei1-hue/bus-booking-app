@@ -1,3 +1,5 @@
+import type { ReservationAddonSelection, TravelAddonDefinition } from "@/lib/travelAddons";
+
 export type Travel = {
   id: string;
   name: string;
@@ -22,6 +24,8 @@ export type Travel = {
   payment_instructions?: string | null;
   image_url?: string | null;
   layout_id?: string | null;
+  sold_out?: boolean;
+  addons?: TravelAddonDefinition[] | null;
 };
 
 export type Translation = {
@@ -63,6 +67,10 @@ export type ReservationGroup = {
   payment_ref: string | null;
   expires_at: string | null;
   paid_at: string | null;
+  base_amount: number | null;
+  addons_amount: number | null;
+  total_amount: number | null;
+  addon_selections?: ReservationAddonSelection[] | null;
 };
 
 export type ReservationItem = {

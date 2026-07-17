@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/server/supabaseRoute";
 import { sendReservationStatusEmail } from "@/lib/email/reservationNotifications";
+import { parseTravelAddons } from "@/lib/travelAddons";
 
 type PassengerItemInput = {
   id?: string;
@@ -9,8 +10,14 @@ type PassengerItemInput = {
   passenger_phone?: string;
 };
 
+type PassengerAddonInput = {
+  addonId?: string;
+  quantity?: number;
+};
+
 type PassengerBody = {
   items?: PassengerItemInput[];
+  addons?: PassengerAddonInput[];
 };
 
 export async function POST(
@@ -51,6 +58,19 @@ export async function POST(
       );
     }
 
+    const { data: travel, error: travelError } = await supabase
+      .from("travels")
+      .select("id, price, addons")
+      .eq("id", reservationGroup.travel_id)
+      .single();
+
+    if (travelError || !travel) {
+      return NextResponse.json(
+        { error: "Travel not found." },
+        { status: 404 }
+      );
+    }
+
     const { data: dbItems, error: itemsError } = await supabase
       .from("reservation_items")
       .select("id, layout_seat_id")
@@ -59,6 +79,78 @@ export async function POST(
     if (itemsError) {
       return NextResponse.json({ error: itemsError.message }, { status: 400 });
     }
+
+    const travelAddons = parseTravelAddons(travel.addons).filter(
+      (addon) => addon.is_active
+    );
+    const addonInputMap = new Map(
+      (body.addons ?? [])
+        .map((item) => ({
+          addonId: item.addonId?.trim() ?? "",
+          quantity: Number(item.quantity) || 0,
+        }))
+        .filter((item) => Boolean(item.addonId))
+        .map((item) => [item.addonId, item.quantity] as const)
+    );
+
+    const addonSelections: Array<{
+      addon_id: string;
+      name: string;
+      description: string | null;
+      unit_price: number;
+      pricing_mode: "per_booking" | "per_participant";
+      quantity: number;
+      total_price: number;
+    }> = [];
+    const knownAddonIds = new Set(travelAddons.map((addon) => addon.id));
+
+    for (const addonId of addonInputMap.keys()) {
+      if (!knownAddonIds.has(addonId)) {
+        return NextResponse.json(
+          { error: "One or more selected services are invalid." },
+          { status: 400 }
+        );
+      }
+    }
+
+    for (const addon of travelAddons) {
+      const requestedQuantity = addonInputMap.get(addon.id) ?? 0;
+
+      if (requestedQuantity <= 0) continue;
+
+      const nextQuantity =
+        addon.pricing_mode === "per_participant"
+          ? requestedQuantity
+          : 1;
+
+      if (
+        nextQuantity < 1 ||
+        nextQuantity > items.length ||
+        (addon.pricing_mode === "per_booking" && requestedQuantity !== 1)
+      ) {
+        return NextResponse.json(
+          { error: "Selected add-on quantity is invalid." },
+          { status: 400 }
+        );
+      }
+
+      addonSelections.push({
+        addon_id: addon.id,
+        name: addon.name,
+        description: addon.description,
+        unit_price: addon.price,
+        pricing_mode: addon.pricing_mode,
+        quantity: nextQuantity,
+        total_price: addon.price * nextQuantity,
+      });
+    }
+
+    const baseAmount = (Number(travel.price) || 0) * items.length;
+    const addonsAmount = addonSelections.reduce(
+      (total, item) => total + item.total_price,
+      0
+    );
+    const totalAmount = baseAmount + addonsAmount;
 
     const dbIds = new Set((dbItems ?? []).map((item) => item.id as string));
     const payloadIds = new Set(items.map((item) => item.id?.trim()).filter(Boolean));
@@ -109,7 +201,13 @@ export async function POST(
 
     const { error: updateGroupError } = await supabase
       .from("reservation_groups")
-      .update({ status: "awaiting_payment" })
+      .update({
+        status: "awaiting_payment",
+        base_amount: baseAmount,
+        addons_amount: addonsAmount,
+        total_amount: totalAmount,
+        addon_selections: addonSelections,
+      })
       .eq("id", reservationId)
       .eq("booker_user_id", user.id);
 
@@ -120,7 +218,11 @@ export async function POST(
       );
     }
 
-    await sendReservationStatusEmail(supabase, reservationId, "awaiting_payment");
+    try {
+      await sendReservationStatusEmail(supabase, reservationId, "awaiting_payment");
+    } catch (error) {
+      console.error("Failed to send awaiting_payment email", error);
+    }
 
     const seatIds = (dbItems ?? []).map((item) => item.layout_seat_id as string);
 
