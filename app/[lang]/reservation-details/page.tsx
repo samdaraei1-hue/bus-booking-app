@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
 import { getSeatLabelValue } from "@/lib/seatLabels";
-import { getPrivacyCopy } from "@/lib/legalContent";
 import { formatMoney, parseTravelAddons, type TravelAddonDefinition } from "@/lib/travelAddons";
 
 type ReservationItemForm = {
@@ -96,27 +95,38 @@ export default function ReservationDetailsPage() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
 
-  const privacyContent = getPrivacyCopy(lang);
   const copy = {
-    checkbox:
-      lang === "fa"
-        ? "من متن اطلاعیه حریم خصوصی را خوانده‌ام و می‌دانم که اطلاعات مسافران برای مدیریت رزرو پردازش می‌شود."
-        : lang === "de"
-        ? "Ich habe den Datenschutzhinweis gelesen und verstehe, dass Teilnehmerdaten zur Verwaltung der Reservierung verarbeitet werden."
-        : "I have read the privacy notice and understand that participant data will be processed for reservation management.",
-    link:
-      lang === "fa"
-        ? "مشاهده اطلاعیه حریم خصوصی"
-        : lang === "de"
-        ? "Datenschutzhinweis lesen"
-        : "Read privacy notice",
-    title: privacyContent.title,
-    close: lang === "fa" ? "بستن" : lang === "de" ? "Schließen" : "Close",
-    paragraph1: privacyContent.paragraphs[0],
-    paragraph2: privacyContent.paragraphs[1],
-    paragraph3: privacyContent.paragraphs[2],
-    paragraph4: privacyContent.paragraphs[3],
-    cookieLink: privacyContent.footerLinkLabel,
+    checkbox: t(
+      "page.reservation_details.privacy_acknowledgement",
+      "I have read the privacy notice and understand that participant data will be processed for reservation management."
+    ),
+    link: t("page.reservation_details.privacy_link", "Read privacy notice"),
+    title: t("page.reservation_details.privacy_modal_title", "Privacy Notice"),
+    close: t("common.close", "Close"),
+    intro: t(
+      "page.reservation_details.privacy_modal_intro",
+      "This page explains how we handle your data during booking, login and support."
+    ),
+    paragraph1: t(
+      "page.reservation_details.privacy_modal_paragraph1",
+      "We process the personal data you provide during booking, login and support communication to manage reservations, contact you about your booking, and keep the service secure."
+    ),
+    paragraph2: t(
+      "page.reservation_details.privacy_modal_paragraph2",
+      "The main booking data we store includes name, email address, phone number, reservation details, travel selection and payment status."
+    ),
+    paragraph3: t(
+      "page.reservation_details.privacy_modal_paragraph3",
+      "We do not use optional tracking cookies by default. Essential cookies and local storage may still be used for login sessions, language selection and keeping an in-progress reservation from being lost."
+    ),
+    paragraph4: t(
+      "page.reservation_details.privacy_modal_paragraph4",
+      "If you want a complete legally reviewed notice for Germany/EU use, this page should still be finalized with your real company details, data retention periods, processor list, contact email and legal basis wording."
+    ),
+    cookieLink: t(
+      "page.reservation_details.cookie_notice_link",
+      "Cookie notice"
+    ),
   };
 
   useEffect(() => {
@@ -651,12 +661,14 @@ export default function ReservationDetailsPage() {
               className="absolute right-4 top-4 rounded-full bg-zinc-100 px-3 py-1 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200"
               aria-label={copy.close}
             >
-              Ã—
+              ×
             </button>
 
             <h2 id="privacy-modal-title" className="text-2xl font-extrabold text-zinc-950">
               {copy.title}
             </h2>
+
+            <p className="mt-4 text-sm leading-7 text-zinc-600">{copy.intro}</p>
 
             <div className="mt-5 space-y-4 text-sm leading-7 text-zinc-700">
               <p>{copy.paragraph1}</p>

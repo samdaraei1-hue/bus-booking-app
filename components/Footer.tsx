@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useT } from "@/lib/translations/useT.client";
@@ -77,7 +77,7 @@ export default function Footer({ lang }: { lang: string }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              Instagram
+              {t("footer.instagram", "Instagram")}
             </a>
             <a
               className="transition hover:text-white"
@@ -85,15 +85,16 @@ export default function Footer({ lang }: { lang: string }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              Telegram
+              {t("footer.telegram", "Telegram")}
             </a>
           </div>
         </div>
       </div>
 
       <div className="border-t border-white/10 px-4 pb-6 pt-4 text-center text-xs text-zinc-500 sm:px-6">
-        © 2026 Energy Travel
+        {t("footer.copyright", "© 2026 Energy Travel")}
       </div>
     </footer>
   );
 }
+
