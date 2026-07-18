@@ -170,7 +170,10 @@ export default function ReservationDetailsPage() {
           layout_seats:
             | { label?: string | null; seat_key?: string | null }
             | Array<{ label?: string | null; seat_key?: string | null }>;
-          reservation_groups: Array<{ travel_id: string; status: string }>;
+          reservation_groups:
+            | { travel_id: string; status: string }
+            | Array<{ travel_id: string; status: string }>
+            | null;
         }>;
 
         setItems(
@@ -186,7 +189,10 @@ export default function ReservationDetailsPage() {
           }))
         );
 
-        const reservationGroup = rows[0]?.reservation_groups?.[0] ?? null;
+        const reservationGroupRaw = rows[0]?.reservation_groups ?? null;
+        const reservationGroup = Array.isArray(reservationGroupRaw)
+          ? reservationGroupRaw[0] ?? null
+          : reservationGroupRaw;
         const nextTravelId = reservationGroup?.travel_id ?? "";
         setTravelId(nextTravelId);
 
