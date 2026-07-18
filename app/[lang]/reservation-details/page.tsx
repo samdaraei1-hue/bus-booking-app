@@ -1,12 +1,12 @@
-"use client";
+﻿"use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
 import { getSeatLabelValue } from "@/lib/seatLabels";
+import { getPrivacyCopy } from "@/lib/legalContent";
 import { formatMoney, parseTravelAddons, type TravelAddonDefinition } from "@/lib/travelAddons";
 
 type ReservationItemForm = {
@@ -94,6 +94,30 @@ export default function ReservationDetailsPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+
+  const privacyContent = getPrivacyCopy(lang);
+  const copy = {
+    checkbox:
+      lang === "fa"
+        ? "من متن اطلاعیه حریم خصوصی را خوانده‌ام و می‌دانم که اطلاعات مسافران برای مدیریت رزرو پردازش می‌شود."
+        : lang === "de"
+        ? "Ich habe den Datenschutzhinweis gelesen und verstehe, dass Teilnehmerdaten zur Verwaltung der Reservierung verarbeitet werden."
+        : "I have read the privacy notice and understand that participant data will be processed for reservation management.",
+    link:
+      lang === "fa"
+        ? "مشاهده اطلاعیه حریم خصوصی"
+        : lang === "de"
+        ? "Datenschutzhinweis lesen"
+        : "Read privacy notice",
+    title: privacyContent.title,
+    close: lang === "fa" ? "بستن" : lang === "de" ? "Schließen" : "Close",
+    paragraph1: privacyContent.paragraphs[0],
+    paragraph2: privacyContent.paragraphs[1],
+    paragraph3: privacyContent.paragraphs[2],
+    paragraph4: privacyContent.paragraphs[3],
+    cookieLink: privacyContent.footerLinkLabel,
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -597,19 +621,68 @@ export default function ReservationDetailsPage() {
             className="mt-1 h-4 w-4 rounded border-zinc-300 text-rose-600 focus:ring-rose-500"
           />
           <span>
-            {t(
-              "page.reservation_details.privacy_acknowledgement",
-              "I have read the privacy notice and understand that participant data will be processed for reservation management."
-            )}{" "}
-            <Link
-              href={`/${lang}/privacy`}
+            {copy.checkbox}{" "}
+            <button
+              type="button"
+              onClick={() => setPrivacyOpen(true)}
               className="font-semibold text-rose-700 underline underline-offset-2"
             >
-              {t("page.reservation_details.privacy_link", "Read privacy notice")}
-            </Link>
+              {copy.link}
+            </button>
           </span>
         </label>
       </div>
+
+      {privacyOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="privacy-modal-title"
+          onClick={() => setPrivacyOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-zinc-200"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPrivacyOpen(false)}
+              className="absolute right-4 top-4 rounded-full bg-zinc-100 px-3 py-1 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200"
+              aria-label={copy.close}
+            >
+              Ã—
+            </button>
+
+            <h2 id="privacy-modal-title" className="text-2xl font-extrabold text-zinc-950">
+              {copy.title}
+            </h2>
+
+            <div className="mt-5 space-y-4 text-sm leading-7 text-zinc-700">
+              <p>{copy.paragraph1}</p>
+              <p>{copy.paragraph2}</p>
+              <p>{copy.paragraph3}</p>
+              <p>{copy.paragraph4}</p>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <a
+                href={`/${lang}/cookies`}
+                className="font-semibold text-rose-700 underline underline-offset-2"
+              >
+                {copy.cookieLink}
+              </a>
+              <button
+                type="button"
+                onClick={() => setPrivacyOpen(false)}
+                className="rounded-2xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800"
+              >
+                {copy.close}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <button
@@ -639,3 +712,7 @@ export default function ReservationDetailsPage() {
     </main>
   );
 }
+
+
+
+

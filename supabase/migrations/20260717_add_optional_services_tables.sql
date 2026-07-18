@@ -64,6 +64,13 @@ create policy "travel_addons_select"
     is_active
     or exists (
       select 1
+      from public.travel_teams tt
+      where tt.travel_id = travel_addons.travel_id
+        and tt.colleague_id = auth.uid()
+        and tt.role in ('leader'::text, 'driver'::text)
+    )
+    or exists (
+      select 1
       from public.users u
       where u.id = auth.uid()
         and u.role = any (array['admin'::text, 'leader'::text, 'owner'::text, 'driver'::text])
@@ -82,6 +89,13 @@ create policy "travel_addons_manage"
   using (
     exists (
       select 1
+      from public.travel_teams tt
+      where tt.travel_id = travel_addons.travel_id
+        and tt.colleague_id = auth.uid()
+        and tt.role in ('leader'::text, 'driver'::text)
+    )
+    or exists (
+      select 1
       from public.users u
       where u.id = auth.uid()
         and u.role = any (array['admin'::text, 'leader'::text, 'owner'::text, 'driver'::text])
@@ -95,6 +109,13 @@ create policy "travel_addons_manage"
   )
   with check (
     exists (
+      select 1
+      from public.travel_teams tt
+      where tt.travel_id = travel_addons.travel_id
+        and tt.colleague_id = auth.uid()
+        and tt.role in ('leader'::text, 'driver'::text)
+    )
+    or exists (
       select 1
       from public.users u
       where u.id = auth.uid()
