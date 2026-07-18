@@ -218,7 +218,7 @@ export default function EditTravelPage() {
         name: "",
         description: null,
         price: 0,
-        pricing_mode: "per_booking",
+        pricing_mode: "per_participant",
         is_active: true,
         sort_order: current.length,
       },
