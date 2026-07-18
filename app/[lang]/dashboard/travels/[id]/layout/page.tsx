@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireTravelLayoutAccess } from "@/lib/auth/requireTravelLayoutAccess";
+import { isReservationActive } from "@/lib/reservations";
 import type { LayoutSeat } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
 
@@ -44,8 +45,21 @@ type ExistingSeatRow = {
 };
 
 type ExistingSeatIdentity = {
+  seatId: string | null;
   seatKey: string | null;
   label: string | null;
+};
+
+type OccupiedSeatRow = {
+  layout_seat_id: string | null;
+  status: string | null;
+  passenger_name: string | null;
+  passenger_email: string | null;
+  passenger_phone: string | null;
+  reservation_groups:
+    | { status: string; expires_at: string | null }
+    | Array<{ status: string; expires_at: string | null }>
+    | null;
 };
 
 function hasLegacyBusAisleLayout(seats: Pick<ExistingSeatRow, "x">[], cols: number) {
@@ -186,6 +200,7 @@ export default function TravelLayoutPage() {
   const [seatSettings, setSeatSettings] = useState<Record<string, SeatSetting>>({});
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [existingSeats, setExistingSeats] = useState<ExistingSeatRow[]>([]);
+  const [occupiedSeats, setOccupiedSeats] = useState<OccupiedSeatRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -217,6 +232,7 @@ export default function TravelLayoutPage() {
         const [
           { data: layout, error: layoutError },
           { data: savedSeats, error: savedSeatsError },
+          { data: reservedSeatRows, error: reservedSeatsError },
         ] = await Promise.all([
           supabase
             .from("venue_layouts")
@@ -227,11 +243,28 @@ export default function TravelLayoutPage() {
             .from("layout_seats")
             .select("id, x, y, seat_key, label, seat_type, is_selectable")
             .eq("layout_id", travelRow.layout_id),
+          supabase
+            .from("reservation_items")
+            .select(
+              `
+                layout_seat_id,
+                status,
+                passenger_name,
+                passenger_email,
+                passenger_phone,
+                reservation_groups:reservation_group_id (
+                  status,
+                  expires_at
+                )
+              `
+            )
+            .eq("reservation_groups.travel_id", travelId),
         ]);
 
         if (!isMounted()) return;
         if (layoutError) throw layoutError;
         if (savedSeatsError) throw savedSeatsError;
+        if (reservedSeatsError) throw reservedSeatsError;
 
         const layoutRow = layout as VenueLayoutRow;
         const nextRows = Math.max(1, layoutRow.rows_count);
@@ -274,9 +307,11 @@ export default function TravelLayoutPage() {
         setRemovedSlots(Array.from(hidden));
         setSeatSettings(nextSeatSettings);
         setExistingSeats(existingSeatRows);
+        setOccupiedSeats((reservedSeatRows ?? []) as OccupiedSeatRow[]);
         setSelectedSlot(Object.keys(nextSeatSettings)[0] ?? null);
       } else {
         setExistingSeats([]);
+        setOccupiedSeats([]);
       }
     } catch (error) {
       console.error(error);
@@ -319,6 +354,7 @@ export default function TravelLayoutPage() {
         useLegacyBusAisle
       );
       map[`${row}:${col}`] = {
+        seatId: seat.id,
         seatKey: seat.seat_key,
         label: seat.label,
       };
@@ -326,6 +362,54 @@ export default function TravelLayoutPage() {
 
     return map;
   }, [columns, existingSeats, layoutType]);
+
+  const occupiedSeatBySlot = useMemo(() => {
+    const useLegacyBusAisle = hasLegacyBusAisleLayout(existingSeats, Math.max(1, columns));
+    const map = new Map<
+      string,
+      {
+        status: string;
+        passengerName: string;
+        passengerEmail: string;
+        passengerPhone: string;
+      }
+    >();
+
+    for (const seat of occupiedSeats) {
+      if (!seat.layout_seat_id) continue;
+
+      const reservationGroup = Array.isArray(seat.reservation_groups)
+        ? seat.reservation_groups[0] ?? null
+        : seat.reservation_groups;
+
+      if (
+        !reservationGroup ||
+        !isReservationActive(reservationGroup.status, reservationGroup.expires_at)
+      ) {
+        continue;
+      }
+
+      const existingSeat = existingSeats.find((item) => item.id === seat.layout_seat_id);
+      if (!existingSeat) continue;
+
+      const row = Math.floor(existingSeat.y);
+      const col = getSlotColumn(
+        layoutType,
+        Math.floor(existingSeat.x),
+        Math.max(1, columns),
+        useLegacyBusAisle
+      );
+
+      map.set(`${row}:${col}`, {
+        status: seat.status ?? reservationGroup.status,
+        passengerName: seat.passenger_name?.trim() || "-",
+        passengerEmail: seat.passenger_email?.trim() || "",
+        passengerPhone: seat.passenger_phone?.trim() || "",
+      });
+    }
+
+    return map;
+  }, [columns, existingSeats, layoutType, occupiedSeats]);
 
   const previewSeats = useMemo(
     () =>
@@ -780,11 +864,13 @@ export default function TravelLayoutPage() {
             {Array.from({ length: Math.max(1, rows) }).flatMap((_, row) =>
               Array.from({ length: Math.max(1, columns) }).map((__, col) => {
                 const slotKey = `${row}:${col}`;
-                const seat = previewSeats.find((item) => item.slotKey === slotKey);
-                const adjustedCol = getAdjustedColumn(layoutType, col);
-                const isSelectedSlot = selectedSlot === slotKey;
-                const isLocked = seat ? seat.is_selectable === false : false;
-                const isVip = seat?.seat_type === "vip";
+              const seat = previewSeats.find((item) => item.slotKey === slotKey);
+              const adjustedCol = getAdjustedColumn(layoutType, col);
+              const isSelectedSlot = selectedSlot === slotKey;
+              const isLocked = seat ? seat.is_selectable === false : false;
+              const isVip = seat?.seat_type === "vip";
+              const occupant = occupiedSeatBySlot.get(slotKey);
+              const isOccupied = Boolean(occupant);
 
                 return (
                   <button
@@ -797,6 +883,8 @@ export default function TravelLayoutPage() {
                       seat
                         ? isLocked
                           ? "border-zinc-400 bg-zinc-300 text-zinc-700"
+                          : isOccupied
+                          ? "border-rose-300 bg-rose-50 text-rose-950 hover:bg-rose-100"
                           : isVip
                           ? "border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200"
                           : "border-zinc-200 bg-zinc-50 hover:border-rose-300 hover:bg-rose-50"
@@ -810,9 +898,32 @@ export default function TravelLayoutPage() {
                     {seat ? (
                       <>
                         <div className="text-sm font-bold text-zinc-900">{seat.label}</div>
-                        <div className="mt-1 text-[11px] text-zinc-500">
-                          {isLocked ? "Locked" : isVip ? "VIP" : seat.seat_key}
-                        </div>
+                        {isOccupied && occupant ? (
+                          <div className="mt-2 space-y-1 text-left text-[11px] leading-4">
+                            <div className="font-semibold text-rose-900">
+                              {t("page.travel_layout.reserved_by", "Reserved by")}
+                            </div>
+                            <div className="font-semibold text-zinc-900">
+                              {occupant.passengerName}
+                            </div>
+                            {occupant.passengerEmail ? (
+                              <div className="break-all text-zinc-600">
+                                {occupant.passengerEmail}
+                              </div>
+                            ) : null}
+                            {occupant.passengerPhone ? (
+                              <div className="text-zinc-600">{occupant.passengerPhone}</div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="mt-1 text-[11px] text-zinc-500">
+                            {isLocked
+                              ? "Locked"
+                              : isVip
+                              ? "VIP"
+                              : seat.seat_key}
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="text-xs font-semibold">

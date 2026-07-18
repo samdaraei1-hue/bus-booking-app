@@ -8,6 +8,16 @@ type Body = {
   status?: ReservationStatus;
 };
 
+type CurrentSeatItemRow = {
+  id: string;
+  status: ReservationStatus;
+  layout_seat_id: string | null;
+  reservation_groups:
+    | { travel_id: string }
+    | Array<{ travel_id: string }>
+    | null;
+};
+
 const ALLOWED_STATUSES: ReservationStatus[] = [
   "held",
   "awaiting_payment",
@@ -15,6 +25,8 @@ const ALLOWED_STATUSES: ReservationStatus[] = [
   "cancelled",
   "expired",
 ];
+
+const RELEASING_STATUSES: ReservationStatus[] = ["cancelled", "expired"];
 
 export async function POST(
   request: Request,
@@ -31,6 +43,32 @@ export async function POST(
       return NextResponse.json({ error: "Invalid seat status update." }, { status: 400 });
     }
 
+    const { data: currentItem, error: currentItemError } = await supabase
+      .from("reservation_items")
+      .select(
+        `
+          id,
+          status,
+          layout_seat_id,
+          reservation_groups:reservation_group_id (
+            travel_id
+          )
+        `
+      )
+      .eq("id", seatId)
+      .eq("reservation_group_id", reservationId)
+      .single();
+
+    if (currentItemError || !currentItem) {
+      return NextResponse.json({ error: "Reservation seat not found." }, { status: 404 });
+    }
+
+    const currentSeatItem = currentItem as CurrentSeatItemRow;
+    const currentStatus = currentSeatItem.status;
+    const travelId = Array.isArray(currentSeatItem.reservation_groups)
+      ? currentSeatItem.reservation_groups[0]?.travel_id ?? null
+      : currentSeatItem.reservation_groups?.travel_id ?? null;
+
     const { error } = await supabase
       .from("reservation_items")
       .update({ status })
@@ -39,6 +77,24 @@ export async function POST(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (RELEASING_STATUSES.includes(status) && travelId && currentSeatItem.layout_seat_id) {
+      const { error: lockDeleteError } = await supabase
+        .from("seat_locks")
+        .delete()
+        .eq("travel_id", travelId)
+        .eq("lock_type", "temporary_hold")
+        .eq("layout_seat_id", currentSeatItem.layout_seat_id);
+
+      if (lockDeleteError) {
+        await supabase
+          .from("reservation_items")
+          .update({ status: currentStatus })
+          .eq("id", seatId)
+          .eq("reservation_group_id", reservationId);
+        return NextResponse.json({ error: lockDeleteError.message }, { status: 400 });
+      }
     }
 
     try {

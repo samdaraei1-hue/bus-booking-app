@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Fragment, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useParams } from "next/navigation";
@@ -115,6 +115,22 @@ type ReservationCardView = ReservationCard & {
   passengerPreview: string;
 };
 
+type DisplayFilter =
+  | "all"
+  | "hide_cancelled"
+  | "paid_only"
+  | "awaiting_payment_only"
+  | "active_only";
+
+type GroupSortField =
+  | "created_at"
+  | "travel"
+  | "booker"
+  | "participants"
+  | "group_status"
+  | "seat_status"
+  | "total_amount";
+
 const STATUS_OPTIONS = [
   "held",
   "awaiting_payment",
@@ -122,6 +138,14 @@ const STATUS_OPTIONS = [
   "cancelled",
   "expired",
 ] as const;
+
+const STATUS_ORDER: Record<ReservationStatus, number> = {
+  held: 0,
+  awaiting_payment: 1,
+  paid: 2,
+  cancelled: 3,
+  expired: 4,
+};
 
 function formatDate(value: string, lang: string) {
   if (!value) return "-";
@@ -141,8 +165,11 @@ export default function DashboardReservationsPage() {
   const [items, setItems] = useState<ReservationCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [displayFilter, setDisplayFilter] = useState<DisplayFilter>("all");
   const [groupStatusFilter, setGroupStatusFilter] = useState<"all" | ReservationStatus>("all");
   const [seatStatusFilter, setSeatStatusFilter] = useState<"all" | ReservationStatus>("all");
+  const [groupSortField, setGroupSortField] = useState<GroupSortField>("created_at");
+  const [groupSortDirection, setGroupSortDirection] = useState<"asc" | "desc">("desc");
   const [msg, setMsg] = useState<string | null>(null);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [copiedTravelId, setCopiedTravelId] = useState<string | null>(null);
@@ -281,6 +308,10 @@ export default function DashboardReservationsPage() {
     setSearch(event.target.value);
   };
 
+  const handleDisplayFilterChange = (filter: DisplayFilter) => {
+    setDisplayFilter(filter);
+  };
+
   const handleGroupStatusFilterChange = (
     event: ChangeEvent<HTMLSelectElement>
   ) => {
@@ -291,6 +322,20 @@ export default function DashboardReservationsPage() {
     event: ChangeEvent<HTMLSelectElement>
   ) => {
     setSeatStatusFilter(event.target.value as "all" | ReservationStatus);
+  };
+
+  const toggleGroupSort = (field: GroupSortField) => {
+    setGroupSortField((currentField) => {
+      if (currentField === field) {
+        setGroupSortDirection((currentDirection) =>
+          currentDirection === "asc" ? "desc" : "asc"
+        );
+        return currentField;
+      }
+
+      setGroupSortDirection(field === "created_at" ? "desc" : "asc");
+      return field;
+    });
   };
 
   const handleGroupStatusChange =
@@ -407,6 +452,22 @@ export default function DashboardReservationsPage() {
     const needle = search.trim().toLowerCase();
 
     return items.filter((group) => {
+      if (displayFilter === "hide_cancelled" && ["cancelled", "expired"].includes(group.status)) {
+        return false;
+      }
+
+      if (displayFilter === "paid_only" && group.status !== "paid") {
+        return false;
+      }
+
+      if (displayFilter === "awaiting_payment_only" && group.status !== "awaiting_payment") {
+        return false;
+      }
+
+      if (displayFilter === "active_only" && !["held", "awaiting_payment", "paid"].includes(group.status)) {
+        return false;
+      }
+
       if (groupStatusFilter !== "all" && group.status !== groupStatusFilter) {
         return false;
       }
@@ -443,7 +504,7 @@ export default function DashboardReservationsPage() {
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(needle));
     });
-  }, [groupStatusFilter, items, search, seatStatusFilter]);
+  }, [displayFilter, groupStatusFilter, items, search, seatStatusFilter]);
 
   const summary = useMemo(() => {
     return {
@@ -522,8 +583,62 @@ export default function DashboardReservationsPage() {
       map.set(group.travel_id, current);
     }
 
+    const compareString = (left: string, right: string) =>
+      left.localeCompare(right, undefined, { sensitivity: "base" });
+    const compareNumber = (left: number, right: number) => left - right;
+    const compareStatus = (left: ReservationStatus, right: ReservationStatus) =>
+      STATUS_ORDER[left] - STATUS_ORDER[right];
+
+    const sortGroups = (groups: ReservationCardView[]) => {
+      const direction = groupSortDirection === "asc" ? 1 : -1;
+      return [...groups].sort((left, right) => {
+        let result = 0;
+
+        switch (groupSortField) {
+          case "travel":
+            result = compareString(left.travelName, right.travelName);
+            break;
+          case "booker":
+            result = compareString(left.bookerName, right.bookerName);
+            break;
+          case "participants":
+            result = compareNumber(left.seats.length, right.seats.length);
+            break;
+          case "group_status":
+            result = compareStatus(left.status, right.status);
+            break;
+          case "seat_status":
+            result = compareStatus(
+              (left.seatSummary.status ?? "expired") as ReservationStatus,
+              (right.seatSummary.status ?? "expired") as ReservationStatus
+            );
+            break;
+          case "total_amount":
+            result = compareNumber(left.total_amount, right.total_amount);
+            break;
+          case "created_at":
+          default:
+            result = compareNumber(
+              new Date(left.created_at).getTime(),
+              new Date(right.created_at).getTime()
+            );
+            break;
+        }
+
+        if (result === 0) {
+          result = compareNumber(
+            new Date(left.created_at).getTime(),
+            new Date(right.created_at).getTime()
+          );
+        }
+
+        return result * direction;
+      });
+    };
+
     return Array.from(map.values()).map((travel) => ({
       ...travel,
+      groups: sortGroups(travel.groups),
       activeGroups: travel.groups.filter((group) =>
         ["held", "awaiting_payment", "paid"].includes(group.status)
       ),
@@ -535,7 +650,7 @@ export default function DashboardReservationsPage() {
         0
       ),
     }));
-  }, [filteredItems]);
+  }, [filteredItems, groupSortDirection, groupSortField]);
 
   const copyBookerEmails = async (travelId: string, emails: string[]) => {
     if (emails.length === 0) {
@@ -561,6 +676,12 @@ export default function DashboardReservationsPage() {
         )
       );
     }
+  };
+
+  const sortButtonLabel = (field: GroupSortField, label: string) => {
+    const active = groupSortField === field;
+    const arrow = active ? (groupSortDirection === "asc" ? "↑" : "↓") : "↕";
+    return `${label} ${arrow}`;
   };
 
   return (
@@ -613,6 +734,72 @@ export default function DashboardReservationsPage() {
       </div>
 
       <div className="page-card p-4 sm:p-5 lg:p-6">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleDisplayFilterChange("all")}
+            className={[
+              "rounded-full px-4 py-2 text-xs font-semibold transition",
+              displayFilter === "all"
+                ? "bg-zinc-900 text-white"
+                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200",
+            ].join(" ")}
+          >
+            {t("dashboard.reservations.all_reservations", "All reservations")}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDisplayFilterChange("active_only")}
+            className={[
+              "rounded-full px-4 py-2 text-xs font-semibold transition",
+              displayFilter === "active_only"
+                ? "bg-emerald-600 text-white"
+                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+            ].join(" ")}
+          >
+            {t("dashboard.reservations.active_only", "Active only")}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDisplayFilterChange("hide_cancelled")}
+            className={[
+              "rounded-full px-4 py-2 text-xs font-semibold transition",
+              displayFilter === "hide_cancelled"
+                ? "bg-amber-600 text-white"
+                : "bg-amber-50 text-amber-700 hover:bg-amber-100",
+            ].join(" ")}
+          >
+            {t("dashboard.reservations.hide_cancelled", "Hide cancelled")}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDisplayFilterChange("paid_only")}
+            className={[
+              "rounded-full px-4 py-2 text-xs font-semibold transition",
+              displayFilter === "paid_only"
+                ? "bg-sky-600 text-white"
+                : "bg-sky-50 text-sky-700 hover:bg-sky-100",
+            ].join(" ")}
+          >
+            {t("dashboard.reservations.paid_only", "Paid only")}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDisplayFilterChange("awaiting_payment_only")}
+            className={[
+              "rounded-full px-4 py-2 text-xs font-semibold transition",
+              displayFilter === "awaiting_payment_only"
+                ? "bg-orange-600 text-white"
+                : "bg-orange-50 text-orange-700 hover:bg-orange-100",
+            ].join(" ")}
+          >
+            {t(
+              "dashboard.reservations.awaiting_payment_only",
+              "Awaiting payment only"
+            )}
+          </button>
+        </div>
+
         <div className="mb-4 grid gap-3 lg:grid-cols-[1.4fr_220px_220px]">
           <div>
             <label
@@ -673,7 +860,24 @@ export default function DashboardReservationsPage() {
                   {getReservationStatusLabel(status, t)}
                 </option>
               ))}
-            </select>
+              </select>
+            </div>
+          </div>
+
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-zinc-500">
+            {t("dashboard.reservations.sort_by", "Sort by")}:{" "}
+            <span className="font-semibold text-zinc-800">
+              {t(`dashboard.reservations.sort_${groupSortField}`, groupSortField)}
+              {" "}
+              {groupSortDirection === "asc" ? "↑" : "↓"}
+            </span>
+          </div>
+          <div className="text-xs text-zinc-500">
+            {t(
+              "dashboard.reservations.sort_hint",
+              "Click a table header to sort that column."
+            )}
           </div>
         </div>
 
@@ -730,53 +934,103 @@ export default function DashboardReservationsPage() {
                   </div>
 
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-72">
-                    <a
-                      href={
-                        travel.bookerEmails.length
-                          ? `mailto:?bcc=${encodeURIComponent(travel.bookerEmails.join(","))}`
-                          : undefined
-                      }
-                      className={[
-                        "rounded-2xl px-4 py-3 text-center text-sm font-semibold transition",
-                        travel.bookerEmails.length
-                          ? "bg-zinc-900 text-white hover:bg-zinc-800"
-                          : "cursor-not-allowed bg-zinc-200 text-zinc-500",
-                      ].join(" ")}
-                      onClick={(event) => {
-                        if (!travel.bookerEmails.length) {
-                          event.preventDefault();
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <a
+                        href={
+                          travel.bookerEmails.length
+                            ? `mailto:?bcc=${encodeURIComponent(travel.bookerEmails.join(","))}`
+                            : undefined
                         }
-                      }}
-                    >
-                      {t("dashboard.reservations.email_bookers", "Email Bookers")}
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => void copyBookerEmails(travel.travel_id, travel.bookerEmails)}
-                      className="rounded-2xl bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
-                    >
-                      {copiedTravelId === travel.travel_id
-                        ? t("dashboard.reservations.copied", "Copied")
-                        : t("dashboard.reservations.copy_emails", "Copy Email List")}
-                    </button>
+                        className={[
+                          "rounded-2xl px-4 py-3 text-center text-sm font-semibold shadow-sm transition",
+                          travel.bookerEmails.length
+                            ? "bg-sky-600 text-white hover:bg-sky-700"
+                            : "cursor-not-allowed bg-zinc-200 text-zinc-500",
+                        ].join(" ")}
+                        onClick={(event) => {
+                          if (!travel.bookerEmails.length) {
+                            event.preventDefault();
+                          }
+                        }}
+                      >
+                        {t("dashboard.reservations.email_bookers", "Email Bookers")}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => void copyBookerEmails(travel.travel_id, travel.bookerEmails)}
+                        className="rounded-2xl bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-200"
+                      >
+                        {copiedTravelId === travel.travel_id
+                          ? t("dashboard.reservations.copied", "Copied")
+                          : t("dashboard.reservations.copy_emails", "Copy Email List")}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-[980px] w-full text-sm">
+                  <table className="min-w-[1100px] w-full text-sm">
                     <thead className="bg-zinc-50 text-zinc-500">
                       <tr className="border-b border-zinc-200">
                         <th className="px-4 py-3 text-start">
-                          {t("dashboard.reservations.group_status", "Group")}
+                          <button
+                            type="button"
+                            onClick={() => toggleGroupSort("group_status")}
+                            className="font-semibold text-zinc-500 hover:text-zinc-900"
+                          >
+                            {sortButtonLabel(
+                              "group_status",
+                              t("dashboard.reservations.group_status", "Group")
+                            )}
+                          </button>
                         </th>
                         <th className="px-4 py-3 text-start">
-                          {t("dashboard.reservations.booker", "Booker")}
+                          <button
+                            type="button"
+                            onClick={() => toggleGroupSort("booker")}
+                            className="font-semibold text-zinc-500 hover:text-zinc-900"
+                          >
+                            {sortButtonLabel(
+                              "booker",
+                              t("dashboard.reservations.booker", "Booker")
+                            )}
+                          </button>
                         </th>
                         <th className="px-4 py-3 text-start">
-                          {t("dashboard.reservations.participants", "Participants")}
+                          <button
+                            type="button"
+                            onClick={() => toggleGroupSort("participants")}
+                            className="font-semibold text-zinc-500 hover:text-zinc-900"
+                          >
+                            {sortButtonLabel(
+                              "participants",
+                              t("dashboard.reservations.participants", "Participants")
+                            )}
+                          </button>
                         </th>
                         <th className="px-4 py-3 text-start">
-                          {t("dashboard.reservations.seat_status", "Seat Status")}
+                          <button
+                            type="button"
+                            onClick={() => toggleGroupSort("seat_status")}
+                            className="font-semibold text-zinc-500 hover:text-zinc-900"
+                          >
+                            {sortButtonLabel(
+                              "seat_status",
+                              t("dashboard.reservations.seat_status", "Seat Status")
+                            )}
+                          </button>
+                        </th>
+                        <th className="px-4 py-3 text-start">
+                          <button
+                            type="button"
+                            onClick={() => toggleGroupSort("total_amount")}
+                            className="font-semibold text-zinc-500 hover:text-zinc-900"
+                          >
+                            {sortButtonLabel(
+                              "total_amount",
+                              t("dashboard.reservations.total", "Total")
+                            )}
+                          </button>
                         </th>
                         <th className="px-4 py-3 text-start">
                           {t("dashboard.reservations.actions", "Action")}
@@ -847,6 +1101,19 @@ export default function DashboardReservationsPage() {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
+                                <div className="font-semibold text-zinc-900">
+                                  {formatMoney(group.total_amount)}
+                                </div>
+                                <div className="mt-1 text-xs text-zinc-500">
+                                  {t("page.payment.base_amount", "Base amount")}:{" "}
+                                  {formatMoney(group.base_amount)}
+                                </div>
+                                <div className="mt-1 text-xs text-zinc-500">
+                                  {t("page.payment.addons_amount", "Add-ons")}:{" "}
+                                  {formatMoney(group.addons_amount)}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
                                 <select
                                   value={group.status}
                                   onChange={handleGroupStatusChange(group.id)}
@@ -859,12 +1126,6 @@ export default function DashboardReservationsPage() {
                                     </option>
                                   ))}
                                 </select>
-                                <div className="mt-2 text-xs text-zinc-500">
-                                  {t("page.payment.total_amount", "Total")}:{" "}
-                                  <span className="font-semibold text-zinc-900">
-                                    {formatMoney(group.total_amount)}
-                                  </span>
-                                </div>
                               </td>
                               <td className="px-4 py-3">
                                 <button
@@ -881,7 +1142,7 @@ export default function DashboardReservationsPage() {
 
                             {expanded ? (
                               <tr className="border-b border-zinc-100">
-                                <td colSpan={5} className="bg-zinc-50/60 px-4 py-4">
+                                <td colSpan={6} className="bg-zinc-50/60 px-4 py-4">
                                   <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
                                     <table className="min-w-full text-xs">
                                       <thead className="bg-zinc-50 text-zinc-500">
@@ -980,3 +1241,5 @@ export default function DashboardReservationsPage() {
     </main>
   );
 }
+
+

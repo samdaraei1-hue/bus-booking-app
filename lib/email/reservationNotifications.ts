@@ -16,6 +16,40 @@ function normalizeLang(value: string | null | undefined): ReservationEmailLang {
   return "en";
 }
 
+type TranslationRow = {
+  namespace: string;
+  key: string;
+  value: string;
+};
+
+async function loadEmailTranslations(
+  supabase: any,
+  lang: ReservationEmailLang
+) {
+  const { data, error } = await supabase
+    .from("translations")
+    .select("namespace, key, value")
+    .eq("lang", lang)
+    .eq("namespace", "email");
+
+  if (error) {
+    return {};
+  }
+
+  if (!data) {
+    return {};
+  }
+
+  const rows = Array.isArray(data) ? data : [data];
+  const dict: Record<string, string> = {};
+
+  (rows as TranslationRow[]).forEach((row) => {
+    dict[`${row.namespace}.${row.key}`] = row.value;
+  });
+
+  return dict;
+}
+
 export async function sendReservationStatusEmail(
   supabaseClient: unknown,
   reservationId: string,
@@ -96,6 +130,8 @@ export async function sendReservationStatusEmail(
     return { ok: false as const, skipped: true as const, reason: "missing_email" };
   }
 
+  const lang = normalizeLang(row.notification_lang);
+  const emailTranslations = await loadEmailTranslations(supabase, lang);
   const seats = (row.reservation_items ?? []).map((item) => {
     const relation = item.layout_seats;
     const seat = Array.isArray(relation) ? relation[0] : relation;
@@ -106,7 +142,6 @@ export async function sendReservationStatusEmail(
     .filter(Boolean)
     .join(" - ");
 
-  const lang = normalizeLang(row.notification_lang);
   const email = buildReservationEmail({
     lang,
     name: row.booker?.name?.trim() || "Traveler",
@@ -118,6 +153,7 @@ export async function sendReservationStatusEmail(
     seats,
     status: row.status,
     trigger,
+    translations: emailTranslations,
   });
 
   return sendEmail({
