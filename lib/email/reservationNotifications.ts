@@ -3,7 +3,7 @@ import {
   buildReservationEmail,
   type ReservationEmailLang,
 } from "@/lib/email/reservationEmailTemplate";
-import { sendEmail } from "@/lib/email/sendEmail";
+import { sendEmail, type SendEmailResult } from "@/lib/email/sendEmail";
 
 type ReservationNotificationTrigger =
   | "group_status"
@@ -54,7 +54,7 @@ export async function sendReservationStatusEmail(
   supabaseClient: unknown,
   reservationId: string,
   trigger: ReservationNotificationTrigger
-) {
+): Promise<SendEmailResult | { ok: false; skipped: true; reason: string }> {
   const supabase = supabaseClient as {
     from: (table: string) => {
       select: (query: string) => {
@@ -127,7 +127,11 @@ export async function sendReservationStatusEmail(
 
   const recipient = row.booker?.email?.trim();
   if (!recipient) {
-    return { ok: false as const, skipped: true as const, reason: "missing_email" };
+    return {
+      ok: false as const,
+      skipped: true as const,
+      reason: "missing_email",
+    };
   }
 
   const lang = normalizeLang(row.notification_lang);

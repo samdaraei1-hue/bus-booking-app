@@ -271,11 +271,11 @@ export async function POST(
       }
     }
 
-    try {
-      await sendReservationStatusEmail(supabase, reservationId, "awaiting_payment");
-    } catch (error) {
-      console.error("Failed to send awaiting_payment email", error);
-    }
+    const emailResult = await sendReservationStatusEmail(
+      supabase,
+      reservationId,
+      "awaiting_payment"
+    );
 
     const seatIds = (dbItems ?? []).map((item) => item.layout_seat_id as string);
 
@@ -286,7 +286,11 @@ export async function POST(
       .eq("lock_type", "temporary_hold")
       .in("layout_seat_id", seatIds);
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json(
+      emailResult.ok
+        ? { ok: true }
+        : { ok: true, warning: emailResult.reason }
+    );
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

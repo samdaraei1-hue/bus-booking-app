@@ -119,13 +119,17 @@ export async function POST(
         items.map((item) => item.layout_seat_id as string)
       );
 
-    try {
-      await sendReservationStatusEmail(supabase, reservationId, "paid");
-    } catch (error) {
-      console.error("Failed to send paid email", error);
-    }
+    const emailResult = await sendReservationStatusEmail(
+      supabase,
+      reservationId,
+      "paid"
+    );
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json(
+      emailResult.ok
+        ? { ok: true }
+        : { ok: true, warning: emailResult.reason }
+    );
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

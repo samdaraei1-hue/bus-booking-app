@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -15,6 +15,7 @@ import { getSeatLabelValue } from "@/lib/seatLabels";
 import { canChangeSeatForReservation } from "@/lib/reservationPolicies";
 import { getSafeSession } from "@/lib/auth/getSafeSession.client";
 import { getBookingMode } from "@/lib/offerings";
+import { formatDateTime } from "@/lib/dateFormatting";
 
 type Travel = {
   id: string;
@@ -64,15 +65,7 @@ type BookingCard = {
   isPast: boolean;
 };
 
-function formatDate(value: string, lang: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
 
-  return date.toLocaleString(
-    lang === "fa" ? "de-DE" : lang === "de" ? "de-DE" : "en-US"
-  );
-}
 
 export default function MyBookingsPage() {
   const params = useParams<{ lang: string }>();
@@ -375,13 +368,13 @@ export default function MyBookingsPage() {
                       <div>
                         {t("page.my_bookings.departure", "Departure")}:
                         <span className="ms-2 font-semibold text-zinc-900">
-                          {formatDate(group.departure_at, lang)}
+                          {formatDateTime(group.departure_at, lang)}
                         </span>
                       </div>
                       <div>
                         {t("page.my_bookings.return", "Return")}:
                         <span className="ms-2 font-semibold text-zinc-900">
-                          {formatDate(group.return_at, lang)}
+                          {formatDateTime(group.return_at, lang)}
                         </span>
                       </div>
                     </div>
@@ -396,7 +389,7 @@ export default function MyBookingsPage() {
                               getReservationStatusTone(seat.status),
                             ].join(" ")}
                           >
-                            {t("page.my_bookings.seat", "Seat")} {seat.label} •{" "}
+                            {t("page.my_bookings.seat", "Seat")} {seat.label} â€¢{" "}
                             {getReservationStatusLabel(seat.status, t)}
                           </span>
                         ))
@@ -453,3 +446,5 @@ export default function MyBookingsPage() {
     </main>
   );
 }
+
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
@@ -207,7 +207,12 @@ export default function PaymentPage() {
       return;
     }
 
+    const warning = (response.data as { warning?: string } | null)?.warning;
+
     setPaid(true);
+    if (warning) {
+      setMsg(warning);
+    }
     setLoading(false);
   };
 
@@ -339,3 +344,4 @@ export default function PaymentPage() {
     </main>
   );
 }
+

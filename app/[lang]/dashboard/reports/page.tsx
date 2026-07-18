@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
+import { formatDateTime } from "@/lib/dateFormatting";
 
 type TravelRow = {
   id: string;
@@ -40,15 +41,7 @@ type Report = {
   expectedRevenue: number;
 };
 
-function formatDate(value: string, lang: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
 
-  return date.toLocaleString(
-    lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US"
-  );
-}
 
 export default function DashboardReportsPage() {
   const params = useParams<{ lang: string }>();
@@ -237,11 +230,11 @@ export default function DashboardReportsPage() {
                       </h2>
                       <p className="mt-1 text-sm text-zinc-600">
                         {report.destination
-                          ? `${report.origin} · ${report.destination}`
+                          ? `${report.origin} Â· ${report.destination}`
                           : report.origin}
                       </p>
                       <p className="mt-1 text-xs text-zinc-400">
-                        {formatDate(report.departureAt, lang)}
+                        {formatDateTime(report.departureAt, lang)}
                       </p>
                     </div>
                     <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
@@ -312,7 +305,7 @@ export default function DashboardReportsPage() {
                             : report.origin}
                         </div>
                         <div className="mt-1 text-xs text-zinc-400">
-                          {formatDate(report.departureAt, lang)}
+                          {formatDateTime(report.departureAt, lang)}
                         </div>
                       </td>
                       <td className="px-3 py-4 text-zinc-900">{report.capacity}</td>
@@ -346,3 +339,5 @@ export default function DashboardReportsPage() {
     </main>
   );
 }
+
+

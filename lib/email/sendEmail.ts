@@ -5,6 +5,10 @@ export type SendEmailInput = {
   text: string;
 };
 
+export type SendEmailResult =
+  | { ok: true; skipped: false }
+  | { ok: false; skipped: false; reason: string };
+
 function getEmailEnv() {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
@@ -20,8 +24,12 @@ export async function sendEmail(input: SendEmailInput) {
   const env = getEmailEnv();
 
   if (!env) {
-    console.warn("Email delivery skipped because RESEND_API_KEY or EMAIL_FROM is missing.");
-    return { ok: false as const, skipped: true as const };
+    return {
+      ok: false as const,
+      skipped: false as const,
+      reason:
+        "Email delivery skipped because RESEND_API_KEY or EMAIL_FROM is missing.",
+    };
   }
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -41,7 +49,11 @@ export async function sendEmail(input: SendEmailInput) {
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`Email delivery failed: ${body || response.statusText}`);
+    return {
+      ok: false as const,
+      skipped: false as const,
+      reason: `Email delivery failed: ${body || response.statusText}`,
+    };
   }
 
   return { ok: true as const, skipped: false as const };

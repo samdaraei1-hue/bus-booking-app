@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Travel } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
+import { formatDateOnly } from "@/lib/dateFormatting";
 import { getBookingMode, getOfferingKind } from "@/lib/offerings";
 
 type ReservationItemStatRow = {
@@ -248,7 +249,7 @@ export default function DashboardTravelsPage() {
                         : localized.origin}
                     </p>
                     <p className="mt-1 text-xs text-zinc-400">
-                      {new Date(travel.departure_at).toLocaleDateString()}
+                      {formatDateOnly(travel.departure_at, lang)}
                     </p>
                   </div>
                   <div className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
@@ -396,7 +397,7 @@ export default function DashboardTravelsPage() {
                     <td className="p-3">{localized.origin}</td>
                     <td className="p-3">{localized.destination || "-"}</td>
                     <td className="p-3">
-                      {new Date(travel.departure_at).toLocaleDateString()}
+                      {formatDateOnly(travel.departure_at, lang)}
                     </td>
                     <td className="p-3">{travel.price}</td>
                     <td className="p-3">{stats.reserved}</td>

@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type { ReservationStatus } from "@/lib/types";
 import { fetchWithSupabaseAuth } from "@/lib/api/fetchWithSupabaseAuth.client";
 import { useT } from "@/lib/translations/useT.client";
+import { formatDateTime } from "@/lib/dateFormatting";
 import { getTravelTranslationsMap } from "@/lib/translations/getTravelTranslation.client";
 import {
   getReservationStatusLabel,
@@ -146,16 +147,6 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
   cancelled: 3,
   expired: 4,
 };
-
-function formatDate(value: string, lang: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-
-  return date.toLocaleString(
-    lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US"
-  );
-}
 
 export default function DashboardReservationsPage() {
   const params = useParams<{ lang: string }>();
@@ -378,6 +369,8 @@ export default function DashboardReservationsPage() {
         );
       }
 
+      const warning = (response.data as { warning?: string } | null)?.warning;
+
       setItems((current) =>
         current.map((group) =>
           group.id === groupId
@@ -389,7 +382,11 @@ export default function DashboardReservationsPage() {
             : group
         )
       );
-      setMsg(t("common.save", "Saved"));
+      setMsg(
+        warning
+          ? `${t("common.save", "Saved")} - ${warning}`
+          : t("common.save", "Saved")
+      );
     } catch (error) {
       console.error(error);
       setMsg(
@@ -425,6 +422,8 @@ export default function DashboardReservationsPage() {
         );
       }
 
+      const warning = (response.data as { warning?: string } | null)?.warning;
+
       setItems((current) =>
         current.map((group) =>
           group.id === groupId
@@ -437,7 +436,11 @@ export default function DashboardReservationsPage() {
             : group
         )
       );
-      setMsg(t("common.save", "Saved"));
+      setMsg(
+        warning
+          ? `${t("common.save", "Saved")} - ${warning}`
+          : t("common.save", "Saved")
+      );
     } catch (error) {
       console.error(error);
       setMsg(
@@ -929,7 +932,7 @@ export default function DashboardReservationsPage() {
                         : travel.origin}
                     </p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      {t("dashboard.reservations.departure", "Departure")}: {formatDate(travel.departure_at, lang)}
+                      {t("dashboard.reservations.departure", "Departure")}: {formatDateTime(travel.departure_at, lang)}
                     </p>
                   </div>
 
@@ -1076,7 +1079,7 @@ export default function DashboardReservationsPage() {
                                   </span>
                                 </div>
                                 <div className="mt-2 text-xs text-zinc-500">
-                                  #{group.id.slice(0, 8)} · {formatDate(group.created_at, lang)}
+                                  #{group.id.slice(0, 8)} · {formatDateTime(group.created_at, lang)}
                                 </div>
                               </td>
                               <td className="px-4 py-3">

@@ -97,13 +97,17 @@ export async function POST(
       }
     }
 
-    try {
-      await sendReservationStatusEmail(supabase, reservationId, "seat_status");
-    } catch (error) {
-      console.error("Failed to send seat status email", error);
-    }
+    const emailResult = await sendReservationStatusEmail(
+      supabase,
+      reservationId,
+      "seat_status"
+    );
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json(
+      emailResult.ok
+        ? { ok: true }
+        : { ok: true, warning: emailResult.reason }
+    );
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Travel } from "@/lib/types";
 import { useT } from "@/lib/translations/useT.client";
 import { getTravelTranslations } from "@/lib/translations/getTravelTranslation.client";
+import { formatDateTime } from "@/lib/dateFormatting";
 import {
   getOfferingKind,
   isLocationOnlyOffering,
@@ -193,7 +194,7 @@ export default function TravelDetailPage() {
                   : t("page.travel_detail.departure", "Departure")}
               </div>
               <div className="mt-1 font-bold text-zinc-900">
-                {new Date(localizedTravel.departure_at).toLocaleString(locale)}
+                {formatDateTime(localizedTravel.departure_at, lang)}
               </div>
             </div>
 
@@ -204,7 +205,7 @@ export default function TravelDetailPage() {
                   : t("page.travel_detail.return", "Return")}
               </div>
               <div className="mt-1 font-bold text-zinc-900">
-                {new Date(localizedTravel.return_at).toLocaleString(locale)}
+                {formatDateTime(localizedTravel.return_at, lang)}
               </div>
             </div>
 
@@ -236,3 +237,5 @@ export default function TravelDetailPage() {
     </main>
   );
 }
+
+

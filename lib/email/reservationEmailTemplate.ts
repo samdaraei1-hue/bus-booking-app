@@ -1,4 +1,4 @@
-import type { ReservationStatus } from "@/lib/types";
+﻿import type { ReservationStatus } from "@/lib/types";
 
 export type ReservationEmailLang = "fa" | "en" | "de";
 
@@ -45,7 +45,7 @@ function formatDate(value: string | null, lang: ReservationEmailLang) {
   if (Number.isNaN(date.getTime())) return "-";
 
   return date.toLocaleString(
-    lang === "fa" ? "fa-IR" : lang === "de" ? "de-DE" : "en-US"
+    lang === "fa" ? "fa-IR-u-ca-gregory-nu-latn" : lang === "de" ? "de-DE" : "en-US"
   );
 }
 
@@ -102,11 +102,11 @@ function getStatusLabel(
 ) {
   const fallback = {
     fa: {
-      held: "نگه داشته شده",
-      awaiting_payment: "در انتظار پرداخت",
-      paid: "پرداخت شده",
-      cancelled: "لغو شده",
-      expired: "منقضی شده",
+      held: "Ù†Ú¯Ù‡ Ø¯Ø§Ø´ØªÙ‡ Ø´Ø¯Ù‡",
+      awaiting_payment: "Ø¯Ø± Ø§Ù†ØªØ¸Ø§Ø± Ù¾Ø±Ø¯Ø§Ø®Øª",
+      paid: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø´Ø¯Ù‡",
+      cancelled: "Ù„ØºÙˆ Ø´Ø¯Ù‡",
+      expired: "Ù…Ù†Ù‚Ø¶ÛŒ Ø´Ø¯Ù‡",
     },
     en: {
       held: "Held",
@@ -134,33 +134,33 @@ function getCopy(input: ReservationEmailInput): ReservationEmailCopy {
 
   const fallback = {
     fa: {
-      eyebrow: "به‌روزرسانی رزرو",
-      statusSummary: "وضعیت رزرو",
-      reservationLabel: "کد رزرو",
-      travelLabel: "عنوان",
-      routeLabel: "مسیر / محل",
-      departureLabel: "زمان شروع",
-      seatsLabel: "صندلی‌ها",
-      paymentInstructionsLabel: "راهنمای پرداخت",
-      footer: "اگر این تغییر را انتظار نداشتید، لطفاً با پشتیبانی تماس بگیرید.",
+      eyebrow: "Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø±Ø²Ø±Ùˆ",
+      statusSummary: "ÙˆØ¶Ø¹ÛŒØª Ø±Ø²Ø±Ùˆ",
+      reservationLabel: "Ú©Ø¯ Ø±Ø²Ø±Ùˆ",
+      travelLabel: "Ø¹Ù†ÙˆØ§Ù†",
+      routeLabel: "Ù…Ø³ÛŒØ± / Ù…Ø­Ù„",
+      departureLabel: "Ø²Ù…Ø§Ù† Ø´Ø±ÙˆØ¹",
+      seatsLabel: "ØµÙ†Ø¯Ù„ÛŒâ€ŒÙ‡Ø§",
+      paymentInstructionsLabel: "Ø±Ø§Ù‡Ù†Ù…Ø§ÛŒ Ù¾Ø±Ø¯Ø§Ø®Øª",
+      footer: "Ø§Ú¯Ø± Ø§ÛŒÙ† ØªØºÛŒÛŒØ± Ø±Ø§ Ø§Ù†ØªØ¸Ø§Ø± Ù†Ø¯Ø§Ø´ØªÛŒØ¯ØŒ Ù„Ø·ÙØ§Ù‹ Ø¨Ø§ Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ ØªÙ…Ø§Ø³ Ø¨Ú¯ÛŒØ±ÛŒØ¯.",
       subject: {
-        group_status: "به‌روزرسانی رزرو {travelName}",
-        seat_status: "به‌روزرسانی صندلی‌های {travelName}",
-        awaiting_payment: "رزرو آماده پرداخت است: {travelName}",
-        paid: "پرداخت رزرو {travelName} تایید شد",
+        group_status: "Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø±Ø²Ø±Ùˆ {travelName}",
+        seat_status: "Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ ØµÙ†Ø¯Ù„ÛŒâ€ŒÙ‡Ø§ÛŒ {travelName}",
+        awaiting_payment: "Ø±Ø²Ø±Ùˆ Ø¢Ù…Ø§Ø¯Ù‡ Ù¾Ø±Ø¯Ø§Ø®Øª Ø§Ø³Øª: {travelName}",
+        paid: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø±Ø²Ø±Ùˆ {travelName} ØªØ§ÛŒÛŒØ¯ Ø´Ø¯",
       },
       title: {
-        group_status: "وضعیت رزرو شما تغییر کرده است",
-        seat_status: "انتخاب صندلی‌های شما به‌روزرسانی شد",
-        awaiting_payment: "رزرو شما آماده پرداخت است",
-        paid: "پرداخت شما تایید شد",
+        group_status: "ÙˆØ¶Ø¹ÛŒØª Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ ØªØºÛŒÛŒØ± Ú©Ø±Ø¯Ù‡ Ø§Ø³Øª",
+        seat_status: "Ø§Ù†ØªØ®Ø§Ø¨ ØµÙ†Ø¯Ù„ÛŒâ€ŒÙ‡Ø§ÛŒ Ø´Ù…Ø§ Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯",
+        awaiting_payment: "Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ Ø¢Ù…Ø§Ø¯Ù‡ Ù¾Ø±Ø¯Ø§Ø®Øª Ø§Ø³Øª",
+        paid: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø´Ù…Ø§ ØªØ§ÛŒÛŒØ¯ Ø´Ø¯",
       },
       intro: {
-        group_status: "وضعیت رزرو شما در سیستم به‌روزرسانی شد.",
-        seat_status: "وضعیت یک یا چند صندلی در رزرو شما به‌روزرسانی شد.",
+        group_status: "ÙˆØ¶Ø¹ÛŒØª Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ Ø¯Ø± Ø³ÛŒØ³ØªÙ… Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.",
+        seat_status: "ÙˆØ¶Ø¹ÛŒØª ÛŒÚ© ÛŒØ§ Ú†Ù†Ø¯ ØµÙ†Ø¯Ù„ÛŒ Ø¯Ø± Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.",
         awaiting_payment:
-          "مشخصات مسافران ثبت شد و رزرو شما اکنون آماده پرداخت است.",
-        paid: "رزرو شما اکنون تایید شده و صندلی‌هایتان قطعی شده‌اند.",
+          "Ù…Ø´Ø®ØµØ§Øª Ù…Ø³Ø§ÙØ±Ø§Ù† Ø«Ø¨Øª Ø´Ø¯ Ùˆ Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ Ø§Ú©Ù†ÙˆÙ† Ø¢Ù…Ø§Ø¯Ù‡ Ù¾Ø±Ø¯Ø§Ø®Øª Ø§Ø³Øª.",
+        paid: "Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ Ø§Ú©Ù†ÙˆÙ† ØªØ§ÛŒÛŒØ¯ Ø´Ø¯Ù‡ Ùˆ ØµÙ†Ø¯Ù„ÛŒâ€ŒÙ‡Ø§ÛŒØªØ§Ù† Ù‚Ø·Ø¹ÛŒ Ø´Ø¯Ù‡â€ŒØ§Ù†Ø¯.",
       },
     },
     en: {
@@ -203,18 +203,18 @@ function getCopy(input: ReservationEmailInput): ReservationEmailCopy {
       departureLabel: "Beginn",
       seatsLabel: "Sitze",
       paymentInstructionsLabel: "Zahlungshinweise",
-      footer: "Wenn du diese Änderung nicht erwartet hast, kontaktiere bitte den Support.",
+      footer: "Wenn du diese Ã„nderung nicht erwartet hast, kontaktiere bitte den Support.",
       subject: {
-        group_status: "Reservierungs-Update für {travelName}",
-        seat_status: "Sitz-Update für {travelName}",
+        group_status: "Reservierungs-Update fÃ¼r {travelName}",
+        seat_status: "Sitz-Update fÃ¼r {travelName}",
         awaiting_payment: "Reservierung zur Zahlung bereit: {travelName}",
-        paid: "Zahlung bestätigt für {travelName}",
+        paid: "Zahlung bestÃ¤tigt fÃ¼r {travelName}",
       },
       title: {
-        group_status: "Der Status deiner Reservierung hat sich geändert",
+        group_status: "Der Status deiner Reservierung hat sich geÃ¤ndert",
         seat_status: "Deine Sitzplatzwahl wurde aktualisiert",
         awaiting_payment: "Deine Reservierung ist zahlungsbereit",
-        paid: "Deine Zahlung wurde bestätigt",
+        paid: "Deine Zahlung wurde bestÃ¤tigt",
       },
       intro: {
         group_status:
@@ -223,7 +223,7 @@ function getCopy(input: ReservationEmailInput): ReservationEmailCopy {
           "Der Status eines oder mehrerer Sitze in deiner Reservierung wurde aktualisiert.",
         awaiting_payment:
           "Die Teilnehmerdaten wurden gespeichert und deine Reservierung ist jetzt zahlungsbereit.",
-        paid: "Deine Reservierung ist jetzt bestätigt und deine Sitze sind gesichert.",
+        paid: "Deine Reservierung ist jetzt bestÃ¤tigt und deine Sitze sind gesichert.",
       },
     },
   } as const;
@@ -369,3 +369,4 @@ export function buildReservationEmail(input: ReservationEmailInput) {
     text,
   };
 }
+
