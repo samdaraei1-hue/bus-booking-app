@@ -449,57 +449,6 @@ export default function ReservationDetailsPage() {
         </p>
       </div>
 
-      <div className="space-y-4">
-        {items.map((item) => (
-          <section
-            key={item.id}
-            className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200"
-          >
-            <h2 className="text-lg font-bold text-zinc-900">
-              {item.layout_seat_id
-                ? `${t("page.reservation_details.seat_number", "Seat Number")} ${item.label || "-"}`
-                : item.label}
-            </h2>
-
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <input
-                value={item.passenger_name}
-                onChange={(event) =>
-                  updateItem(item.id, "passenger_name", event.target.value)
-                }
-                placeholder={t(
-                  "page.reservation_details.passenger_name",
-                  "Participant name *"
-                )}
-                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
-              />
-              <input
-                value={item.passenger_email}
-                onChange={(event) =>
-                  updateItem(item.id, "passenger_email", event.target.value)
-                }
-                placeholder={t(
-                  "page.reservation_details.passenger_email",
-                  "Participant email"
-                )}
-                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
-              />
-              <input
-                value={item.passenger_phone}
-                onChange={(event) =>
-                  updateItem(item.id, "passenger_phone", event.target.value)
-                }
-                placeholder={t(
-                  "page.reservation_details.passenger_phone",
-                  "Participant phone *"
-                )}
-                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
-              />
-            </div>
-          </section>
-        ))}
-      </div>
-
       {travelAddons.length > 0 ? (
         <section className="mt-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -515,20 +464,50 @@ export default function ReservationDetailsPage() {
               </p>
             </div>
 
-            <div className="rounded-2xl bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
-              <div>
-                {t("page.payment.base_amount", "Base amount")}:{" "}
+            <div className="min-w-[260px] rounded-2xl bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+              <div className="flex items-center justify-between gap-4">
+                <span>{t("page.payment.base_amount", "Base amount")}</span>
                 <span className="font-semibold">{formatMoney(baseAmount)}</span>
               </div>
-              <div className="mt-1">
-                {t("page.payment.addons_amount", "Add-ons")}:{" "}
+              <div className="mt-1 flex items-center justify-between gap-4">
+                <span>{t("page.payment.addons_amount", "Add-ons")}</span>
                 <span className="font-semibold">{formatMoney(addonsAmount)}</span>
               </div>
-              <div className="mt-1 text-base font-bold text-rose-700">
-                {t("page.payment.total_amount", "Total")}: {formatMoney(totalAmount)}
+              <div className="mt-2 flex items-center justify-between gap-4 border-t border-zinc-200 pt-2 text-base font-bold text-rose-700">
+                <span>{t("page.payment.total_amount", "Total")}</span>
+                <span>{formatMoney(totalAmount)}</span>
               </div>
             </div>
           </div>
+
+          {selectedAddonRows.length > 0 ? (
+            <div className="mt-5 rounded-2xl bg-rose-50 p-4 ring-1 ring-rose-100">
+              <div className="text-sm font-semibold text-rose-800">
+                {t("page.payment.optional_services", "Optional services")}
+              </div>
+              <div className="mt-3 space-y-2">
+                {selectedAddonRows.map((addon) => (
+                  <div
+                    key={addon.addon_id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm text-zinc-700 ring-1 ring-rose-100"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-semibold text-zinc-900">{addon.name}</div>
+                      <div className="text-xs text-zinc-500">
+                        {addon.quantity} x {formatMoney(addon.unit_price)}{" "}
+                        {addon.pricing_mode === "per_participant"
+                          ? t("travels.per_participant", "per participant")
+                          : t("travels.per_booking", "per booking")}
+                      </div>
+                    </div>
+                    <div className="text-sm font-semibold text-zinc-900">
+                      {formatMoney(addon.total_price)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-5 space-y-3">
             {travelAddons
@@ -617,10 +596,61 @@ export default function ReservationDetailsPage() {
                     ) : null}
                   </div>
                 );
-              })}
+            })}
           </div>
         </section>
       ) : null}
+
+      <div className="mt-6 space-y-4">
+        {items.map((item) => (
+          <section
+            key={item.id}
+            className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-zinc-200"
+          >
+            <h2 className="text-lg font-bold text-zinc-900">
+              {item.layout_seat_id
+                ? `${t("page.reservation_details.seat_number", "Seat Number")} ${item.label || "-"}`
+                : item.label}
+            </h2>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <input
+                value={item.passenger_name}
+                onChange={(event) =>
+                  updateItem(item.id, "passenger_name", event.target.value)
+                }
+                placeholder={t(
+                  "page.reservation_details.passenger_name",
+                  "Participant name *"
+                )}
+                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+              />
+              <input
+                value={item.passenger_email}
+                onChange={(event) =>
+                  updateItem(item.id, "passenger_email", event.target.value)
+                }
+                placeholder={t(
+                  "page.reservation_details.passenger_email",
+                  "Participant email"
+                )}
+                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+              />
+              <input
+                value={item.passenger_phone}
+                onChange={(event) =>
+                  updateItem(item.id, "passenger_phone", event.target.value)
+                }
+                placeholder={t(
+                  "page.reservation_details.passenger_phone",
+                  "Participant phone *"
+                )}
+                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none ring-rose-200 focus:ring-4"
+              />
+            </div>
+          </section>
+        ))}
+      </div>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <label className="flex max-w-2xl items-start gap-3 text-sm text-zinc-600">
