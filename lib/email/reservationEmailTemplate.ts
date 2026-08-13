@@ -102,11 +102,11 @@ function getStatusLabel(
 ) {
   const fallback = {
     fa: {
-      held: "Ù†Ú¯Ù‡ Ø¯Ø§Ø´ØªÙ‡ Ø´Ø¯Ù‡",
-      awaiting_payment: "Ø¯Ø± Ø§Ù†ØªØ¸Ø§Ø± Ù¾Ø±Ø¯Ø§Ø®Øª",
-      paid: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø´Ø¯Ù‡",
-      cancelled: "Ù„ØºÙˆ Ø´Ø¯Ù‡",
-      expired: "Ù…Ù†Ù‚Ø¶ÛŒ Ø´Ø¯Ù‡",
+      held: "نگه داشته شده",
+      awaiting_payment: "در انتظار پرداخت",
+      paid: "پرداخت شده",
+      cancelled: "لغو شده",
+      expired: "منقضی شده",
     },
     en: {
       held: "Held",
@@ -134,33 +134,33 @@ function getCopy(input: ReservationEmailInput): ReservationEmailCopy {
 
   const fallback = {
     fa: {
-      eyebrow: "Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø±Ø²Ø±Ùˆ",
-      statusSummary: "ÙˆØ¶Ø¹ÛŒØª Ø±Ø²Ø±Ùˆ",
-      reservationLabel: "Ú©Ø¯ Ø±Ø²Ø±Ùˆ",
-      travelLabel: "Ø¹Ù†ÙˆØ§Ù†",
-      routeLabel: "Ù…Ø³ÛŒØ± / Ù…Ø­Ù„",
-      departureLabel: "Ø²Ù…Ø§Ù† Ø´Ø±ÙˆØ¹",
-      seatsLabel: "ØµÙ†Ø¯Ù„ÛŒâ€ŒÙ‡Ø§",
-      paymentInstructionsLabel: "Ø±Ø§Ù‡Ù†Ù…Ø§ÛŒ Ù¾Ø±Ø¯Ø§Ø®Øª",
-      footer: "Ø§Ú¯Ø± Ø§ÛŒÙ† ØªØºÛŒÛŒØ± Ø±Ø§ Ø§Ù†ØªØ¸Ø§Ø± Ù†Ø¯Ø§Ø´ØªÛŒØ¯ØŒ Ù„Ø·ÙØ§Ù‹ Ø¨Ø§ Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ ØªÙ…Ø§Ø³ Ø¨Ú¯ÛŒØ±ÛŒØ¯.",
+      eyebrow: "به‌روزرسانی رزرو",
+      statusSummary: "وضعیت رزرو",
+      reservationLabel: "کد رزرو",
+      travelLabel: "عنوان",
+      routeLabel: "مسیر / محل",
+      departureLabel: "زمان شروع",
+      seatsLabel: "صندلی‌ها",
+      paymentInstructionsLabel: "راهنمای پرداخت",
+      footer: "اگر این تغییر را انتظار نداشتید، لطفاً با پشتیبانی تماس بگیرید.",
       subject: {
-        group_status: "Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø±Ø²Ø±Ùˆ {travelName}",
-        seat_status: "Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ ØµÙ†Ø¯Ù„ÛŒâ€ŒÙ‡Ø§ÛŒ {travelName}",
-        awaiting_payment: "Ø±Ø²Ø±Ùˆ Ø¢Ù…Ø§Ø¯Ù‡ Ù¾Ø±Ø¯Ø§Ø®Øª Ø§Ø³Øª: {travelName}",
-        paid: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø±Ø²Ø±Ùˆ {travelName} ØªØ§ÛŒÛŒØ¯ Ø´Ø¯",
+        group_status: "به‌روزرسانی رزرو {travelName}",
+        seat_status: "به‌روزرسانی صندلی‌های {travelName}",
+        awaiting_payment: "رزرو آماده پرداخت است: {travelName}",
+        paid: "پرداخت رزرو {travelName} تایید شد",
       },
       title: {
-        group_status: "ÙˆØ¶Ø¹ÛŒØª Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ ØªØºÛŒÛŒØ± Ú©Ø±Ø¯Ù‡ Ø§Ø³Øª",
-        seat_status: "Ø§Ù†ØªØ®Ø§Ø¨ ØµÙ†Ø¯Ù„ÛŒâ€ŒÙ‡Ø§ÛŒ Ø´Ù…Ø§ Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯",
-        awaiting_payment: "Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ Ø¢Ù…Ø§Ø¯Ù‡ Ù¾Ø±Ø¯Ø§Ø®Øª Ø§Ø³Øª",
-        paid: "Ù¾Ø±Ø¯Ø§Ø®Øª Ø´Ù…Ø§ ØªØ§ÛŒÛŒØ¯ Ø´Ø¯",
+        group_status: "وضعیت رزرو شما تغییر کرده است",
+        seat_status: "انتخاب صندلی‌های شما به‌روزرسانی شد",
+        awaiting_payment: "رزرو شما آماده پرداخت است",
+        paid: "پرداخت شما تایید شد",
       },
       intro: {
-        group_status: "ÙˆØ¶Ø¹ÛŒØª Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ Ø¯Ø± Ø³ÛŒØ³ØªÙ… Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.",
-        seat_status: "ÙˆØ¶Ø¹ÛŒØª ÛŒÚ© ÛŒØ§ Ú†Ù†Ø¯ ØµÙ†Ø¯Ù„ÛŒ Ø¯Ø± Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.",
+        group_status: "وضعیت رزرو شما در سیستم به‌روزرسانی شد.",
+        seat_status: "وضعیت یک یا چند صندلی در رزرو شما به‌روزرسانی شد.",
         awaiting_payment:
-          "Ù…Ø´Ø®ØµØ§Øª Ù…Ø³Ø§ÙØ±Ø§Ù† Ø«Ø¨Øª Ø´Ø¯ Ùˆ Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ Ø§Ú©Ù†ÙˆÙ† Ø¢Ù…Ø§Ø¯Ù‡ Ù¾Ø±Ø¯Ø§Ø®Øª Ø§Ø³Øª.",
-        paid: "Ø±Ø²Ø±Ùˆ Ø´Ù…Ø§ Ø§Ú©Ù†ÙˆÙ† ØªØ§ÛŒÛŒØ¯ Ø´Ø¯Ù‡ Ùˆ ØµÙ†Ø¯Ù„ÛŒâ€ŒÙ‡Ø§ÛŒØªØ§Ù† Ù‚Ø·Ø¹ÛŒ Ø´Ø¯Ù‡â€ŒØ§Ù†Ø¯.",
+          "مشخصات مسافران ثبت شد و رزرو شما اکنون آماده پرداخت است.",
+        paid: "رزرو شما اکنون تایید شده و صندلی‌هایتان قطعی شده‌اند.",
       },
     },
     en: {
@@ -203,18 +203,18 @@ function getCopy(input: ReservationEmailInput): ReservationEmailCopy {
       departureLabel: "Beginn",
       seatsLabel: "Sitze",
       paymentInstructionsLabel: "Zahlungshinweise",
-      footer: "Wenn du diese Ã„nderung nicht erwartet hast, kontaktiere bitte den Support.",
+      footer: "Wenn du diese Änderung nicht erwartet hast, kontaktiere bitte den Support.",
       subject: {
-        group_status: "Reservierungs-Update fÃ¼r {travelName}",
-        seat_status: "Sitz-Update fÃ¼r {travelName}",
+        group_status: "Reservierungs-Update für {travelName}",
+        seat_status: "Sitz-Update für {travelName}",
         awaiting_payment: "Reservierung zur Zahlung bereit: {travelName}",
-        paid: "Zahlung bestÃ¤tigt fÃ¼r {travelName}",
+        paid: "Zahlung bestätigt für {travelName}",
       },
       title: {
-        group_status: "Der Status deiner Reservierung hat sich geÃ¤ndert",
+        group_status: "Der Status deiner Reservierung hat sich geändert",
         seat_status: "Deine Sitzplatzwahl wurde aktualisiert",
         awaiting_payment: "Deine Reservierung ist zahlungsbereit",
-        paid: "Deine Zahlung wurde bestÃ¤tigt",
+        paid: "Deine Zahlung wurde bestätigt",
       },
       intro: {
         group_status:
@@ -223,7 +223,7 @@ function getCopy(input: ReservationEmailInput): ReservationEmailCopy {
           "Der Status eines oder mehrerer Sitze in deiner Reservierung wurde aktualisiert.",
         awaiting_payment:
           "Die Teilnehmerdaten wurden gespeichert und deine Reservierung ist jetzt zahlungsbereit.",
-        paid: "Deine Reservierung ist jetzt bestÃ¤tigt und deine Sitze sind gesichert.",
+        paid: "Deine Reservierung ist jetzt bestätigt und deine Sitze sind gesichert.",
       },
     },
   } as const;
@@ -297,6 +297,13 @@ export function buildReservationEmail(input: ReservationEmailInput) {
   const departure = formatDate(input.departureAt, input.lang);
   const paymentInstructions = input.paymentInstructions?.trim() ?? "";
   const accentStyle = `background:${copy.accent.bg};color:${copy.accent.fg};border:1px solid ${copy.accent.border};`;
+  const isRtl = input.lang === "fa";
+  const shellStyle = `margin:0;padding:32px 16px;background:#f4f4f5;font-family:${
+    isRtl ? "Tahoma, Arial, sans-serif" : "Arial, sans-serif"
+  };color:#18181b;direction:${isRtl ? "rtl" : "ltr"};text-align:${isRtl ? "right" : "left"};`;
+  const cardStyle = "max-width:640px;margin:0 auto;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e4e4e7;box-shadow:0 20px 50px rgba(0,0,0,0.06);";
+  const headerStyle = "padding:28px 28px 18px;background:linear-gradient(135deg,#18181b,#3f3f46);color:#ffffff;";
+  const bodyStyle = "padding:28px;";
 
   const rows: Array<{ label: string; value: string; isHtml?: boolean }> = [
     { label: copy.statusSummary, value: copy.statusLabel },
@@ -316,9 +323,9 @@ export function buildReservationEmail(input: ReservationEmailInput) {
   }
 
   const html = `
-    <div style="margin:0;padding:32px 16px;background:#f4f4f5;font-family:Arial,sans-serif;color:#18181b;">
-      <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e4e4e7;box-shadow:0 20px 50px rgba(0,0,0,0.06);">
-        <div style="padding:28px 28px 18px;background:linear-gradient(135deg,#18181b,#3f3f46);color:#ffffff;">
+    <div style="${shellStyle}">
+      <div style="${cardStyle}">
+        <div style="${headerStyle}">
           <div style="font-size:12px;letter-spacing:0.16em;text-transform:uppercase;opacity:0.72;">${escapeHtml(copy.eyebrow)}</div>
           <h1 style="margin:12px 0 8px;font-size:28px;line-height:1.2;">${escapeHtml(copy.title)}</h1>
           <p style="margin:0;font-size:15px;line-height:1.8;opacity:0.9;">${escapeHtml(copy.intro)}</p>
@@ -326,7 +333,7 @@ export function buildReservationEmail(input: ReservationEmailInput) {
             ${escapeHtml(copy.statusSummary)}: ${escapeHtml(copy.statusLabel)}
           </div>
         </div>
-        <div style="padding:28px;">
+        <div style="${bodyStyle}">
           <p style="margin:0 0 18px;font-size:15px;line-height:1.8;">${escapeHtml(input.name || "Traveler")},</p>
           <table role="presentation" width="100%" style="border-collapse:collapse;margin-top:10px;">
             ${rows
